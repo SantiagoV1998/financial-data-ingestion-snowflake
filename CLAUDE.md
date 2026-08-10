@@ -84,13 +84,15 @@ claim enforceable, and it means **regenerating the manifest will not get a
 `data/` change past CI**. That is deliberate: in this project the source files
 are never supposed to change.
 
-If one genuinely must — a new client delivery, say — apply the
-**`data-change-approved`** label to the PR. That skips the base-branch step so
-the diff is reviewed on purpose instead of waved through, while steps 1 and 2
-still verify the manifest matches what is there. Then regenerate it:
+There is no opt-out flag, on purpose. If a delivery genuinely changed, the PR
+must edit `.github/workflows/ci.yml` as well — which puts the exception in the
+diff where a reviewer will see it, instead of behind a label that waves it
+through. Regenerate the manifest with NUL-delimited paths, since a delivered
+filename may contain spaces:
 
 ```bash
-git ls-files data | grep -v CHECKSUMS.sha256 | sort | xargs shasum -a 256 > data/CHECKSUMS.sha256
+git ls-files -z data | grep -zv 'CHECKSUMS\.sha256' | sort -z \
+  | xargs -0 shasum -a 256 > data/CHECKSUMS.sha256
 ```
 
 `.sqlfluff` disables a number of rules, each with a written reason. Keep it that
