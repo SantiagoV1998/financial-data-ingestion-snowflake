@@ -37,7 +37,7 @@ CREATE OR REPLACE TABLE raw_text_lines (
     source_file     VARCHAR       NOT NULL,
     file_row_number NUMBER        NOT NULL,
     line_text       VARCHAR,
-    loaded_at       TIMESTAMP_NTZ NOT NULL DEFAULT CURRENT_TIMESTAMP()
+    loaded_at       TIMESTAMP_NTZ NOT NULL DEFAULT SYSDATE()
 )
 COMMENT = 'Verbatim lines from files no native parser accepts (XML fragments, commented JSON).';
 
@@ -50,7 +50,7 @@ CREATE OR REPLACE TABLE raw_client_a_customers (
     is_active       VARCHAR,
     source_file     VARCHAR NOT NULL,
     file_row_number NUMBER  NOT NULL,
-    loaded_at       TIMESTAMP_NTZ NOT NULL DEFAULT CURRENT_TIMESTAMP()
+    loaded_at       TIMESTAMP_NTZ NOT NULL DEFAULT SYSDATE()
 );
 
 CREATE OR REPLACE TABLE raw_client_a_orders (
@@ -58,7 +58,7 @@ CREATE OR REPLACE TABLE raw_client_a_orders (
     order_status    VARCHAR, channel     VARCHAR,
     source_file     VARCHAR NOT NULL,
     file_row_number NUMBER  NOT NULL,
-    loaded_at       TIMESTAMP_NTZ NOT NULL DEFAULT CURRENT_TIMESTAMP()
+    loaded_at       TIMESTAMP_NTZ NOT NULL DEFAULT SYSDATE()
 );
 
 CREATE OR REPLACE TABLE raw_client_a_products (
@@ -66,7 +66,7 @@ CREATE OR REPLACE TABLE raw_client_a_products (
     unit_price      VARCHAR, currency     VARCHAR, is_active VARCHAR,
     source_file     VARCHAR NOT NULL,
     file_row_number NUMBER  NOT NULL,
-    loaded_at       TIMESTAMP_NTZ NOT NULL DEFAULT CURRENT_TIMESTAMP()
+    loaded_at       TIMESTAMP_NTZ NOT NULL DEFAULT SYSDATE()
 );
 
 /* ---------------------------------------------------------------------------
@@ -76,7 +76,7 @@ CREATE OR REPLACE TABLE raw_client_a_products (
    itself as clientC_* and all identifiers are prefixed C- (C-CUST, C-ORD,
    C-TXN). Bronze preserves the discrepancy rather than resolving it — the
    folder gives the table its name, the content keeps its own identifiers.
-   See docs/anomalies.md.
+   See knowledge-base/DATA_SOURCES.md.
 
    Note the schema divergence from Client A, which is the real modeling problem:
      · one customer_name field instead of first_name + last_name
@@ -90,7 +90,7 @@ CREATE OR REPLACE TABLE raw_client_b_customers (
     segment         VARCHAR, is_active     VARCHAR,
     source_file     VARCHAR NOT NULL,
     file_row_number NUMBER  NOT NULL,
-    loaded_at       TIMESTAMP_NTZ NOT NULL DEFAULT CURRENT_TIMESTAMP()
+    loaded_at       TIMESTAMP_NTZ NOT NULL DEFAULT SYSDATE()
 );
 
 CREATE OR REPLACE TABLE raw_client_b_orders (
@@ -98,7 +98,7 @@ CREATE OR REPLACE TABLE raw_client_b_orders (
     order_status    VARCHAR,
     source_file     VARCHAR NOT NULL,
     file_row_number NUMBER  NOT NULL,
-    loaded_at       TIMESTAMP_NTZ NOT NULL DEFAULT CURRENT_TIMESTAMP()
+    loaded_at       TIMESTAMP_NTZ NOT NULL DEFAULT SYSDATE()
 );
 
 CREATE OR REPLACE TABLE raw_client_b_products (
@@ -106,7 +106,7 @@ CREATE OR REPLACE TABLE raw_client_b_products (
     unit_price      VARCHAR, currency     VARCHAR, is_active VARCHAR,
     source_file     VARCHAR NOT NULL,
     file_row_number NUMBER  NOT NULL,
-    loaded_at       TIMESTAMP_NTZ NOT NULL DEFAULT CURRENT_TIMESTAMP()
+    loaded_at       TIMESTAMP_NTZ NOT NULL DEFAULT SYSDATE()
 );
 
 CREATE OR REPLACE TABLE raw_client_b_payments (
@@ -114,7 +114,7 @@ CREATE OR REPLACE TABLE raw_client_b_payments (
     amount          VARCHAR, currency VARCHAR, status         VARCHAR,
     source_file     VARCHAR NOT NULL,
     file_row_number NUMBER  NOT NULL,
-    loaded_at       TIMESTAMP_NTZ NOT NULL DEFAULT CURRENT_TIMESTAMP()
+    loaded_at       TIMESTAMP_NTZ NOT NULL DEFAULT SYSDATE()
 );
 
 SHOW TABLES IN SCHEMA bronze;

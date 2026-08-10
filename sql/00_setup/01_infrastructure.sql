@@ -87,6 +87,13 @@ GRANT OWNERSHIP ON ALL FILE FORMATS IN DATABASE financial_ingestion
 GRANT OWNERSHIP ON ALL STAGES IN DATABASE financial_ingestion
     TO ROLE ingestion_engineer COPY CURRENT GRANTS;
 
+-- Views matter here specifically: 05_validate_bronze.sql creates
+-- v_bronze_validation, and a view left owned by another role would make
+-- CREATE OR REPLACE VIEW fail — disabling the very check that exists to catch
+-- a silent load failure.
+GRANT OWNERSHIP ON ALL VIEWS IN DATABASE financial_ingestion
+    TO ROLE ingestion_engineer COPY CURRENT GRANTS;
+
 /* ---------------------------------------------------------------------------
    Medallion schemas — created as the owning role
    ------------------------------------------------------------------------ */

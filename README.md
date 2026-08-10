@@ -44,15 +44,24 @@ sql/02_silver  XML/JSON parsing, dedup, data-quality rules
 sql/03_gold    canonical DDL and transformations
 sql/04_analysis  validation and reporting queries
 dashboard/     results dashboard
-docs/          data model and anomaly-handling notes
 ```
 
 ## Reproducing
 
 Requires a Snowflake account and the [Snowflake CLI](https://docs.snowflake.com/en/developer-guide/snowflake-cli/index).
-Scripts run in numeric order and are idempotent.
+Scripts run in numeric order, **from the repository root** — the upload step
+uses relative `PUT` paths.
 
 ```bash
 snow sql -c <connection> -f sql/00_setup/01_infrastructure.sql
-# ... then each numbered script in sequence
+snow sql -c <connection> -f sql/01_bronze/01_stage_and_file_formats.sql
+snow sql -c <connection> -f sql/01_bronze/02_upload_files.sql
+snow sql -c <connection> -f sql/01_bronze/03_raw_ingestion_ddl.sql
+snow sql -c <connection> -f sql/01_bronze/04_load_bronze.sql
+snow sql -c <connection> -f sql/01_bronze/05_validate_bronze.sql   # must print 13 PASS
 ```
+
+The **load** scripts are idempotent — each truncates before copying, and the
+upload clears the stage first, so re-running is safe. The **DDL** scripts use
+`CREATE OR REPLACE TABLE` and are destructive: re-running `03` empties bronze,
+so `04` and `05` must follow it.

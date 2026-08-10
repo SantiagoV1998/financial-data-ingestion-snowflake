@@ -25,6 +25,15 @@ USE WAREHOUSE wh_ingestion;
 USE DATABASE financial_ingestion;
 USE SCHEMA bronze;
 
+/* Clear the stage first. OVERWRITE only replaces a file of the same name, so a
+   path previously staged with AUTO_COMPRESS = TRUE would leave Customer.csv.gz
+   sitting beside the new Customer.csv. The COPY statements reference stage
+   paths as prefixes, and the raw-text PATTERN accepts an optional .gz, so both
+   names would match and every row would load twice. REMOVE makes the staged
+   state a function of data/ alone rather than of upload history. */
+REMOVE @raw_files/client_a/;
+REMOVE @raw_files/client_b/;
+
 PUT 'file://data/client_a/*' @raw_files/client_a/
     AUTO_COMPRESS = FALSE
     OVERWRITE     = TRUE;

@@ -141,4 +141,4 @@ FROM cleaned_lines;
   Claims about data are cheap to check and expensive to get wrong.
 - Documentation is updated in the same PR as the code it describes.
 
-**Last updated**: 2026-08-10 · after PR #1 (bronze), second review round
+**Last updated**: 2026-08-10 · after PR #1 (bronze), third review round

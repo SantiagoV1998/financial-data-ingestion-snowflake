@@ -205,4 +205,53 @@ steps to explain for a recovery path cheaper to simply re-run.
 Worth revisiting if the source data ever grows large enough that re-staging is
 expensive. At this size it is ceremony.
 
-**Last updated**: 2026-08-10 · after PR #1 (bronze), second review round
+---
+
+## D13 · Lineage timestamps in UTC, not session-local
+
+**Decision**: `loaded_at` defaults to `SYSDATE()`, not `CURRENT_TIMESTAMP()`.
+
+**Why**: `CURRENT_TIMESTAMP()` returns `TIMESTAMP_LTZ`, so writing it into a
+`TIMESTAMP_NTZ` column stores whatever the session's `TIMEZONE` parameter makes
+of it. Measured on the same physical instant:
+
+| Session timezone | Value stored |
+|---|---|
+| `America/Bogota` | `2026-08-10 14:46:43` |
+| `Asia/Tokyo` | `2026-08-11 04:46:43` |
+| `SYSDATE()` | `2026-08-10 19:46:43` (both) |
+
+Fourteen hours apart, on different calendar days. Two engineers reloading bronze
+from different locations would produce lineage that cannot be ordered — and
+ordering loads is the entire purpose of the column. `SYSDATE()` returns
+`TIMESTAMP_NTZ` in UTC unconditionally.
+
+---
+
+## D14 · The stage is cleared before every upload
+
+**Decision**: `02_upload_files.sql` runs `REMOVE` before `PUT`.
+
+**Why**: `OVERWRITE = TRUE` only replaces a file of the same name. A path
+previously staged with `AUTO_COMPRESS = TRUE` leaves `Customer.csv.gz` beside
+the new `Customer.csv`. The `COPY` statements match stage paths as prefixes and
+the raw-text `PATTERN` accepts an optional `.gz`, so both names match and every
+row loads twice. `REMOVE` makes the staged state a function of `data/` alone
+rather than of upload history.
+
+---
+
+## D15 · Both file formats treat invalid bytes identically
+
+**Decision**: `REPLACE_INVALID_CHARACTERS = FALSE` on `ff_client_csv` as well as
+`ff_raw_text`.
+
+**Why**: the two formats had opposite settings with no stated reason. Both land
+in bronze, which is declared the replay source for everything downstream, and
+nothing in the validation can detect a substitution after the fact. A Latin-1
+`é` in a customer name would abort loudly on the XML path and silently become
+`Jos�` on the CSV path, with the original byte unrecoverable. Divergent
+handling of the same class of corruption within the same layer is not a
+defensible contract.
+
+**Last updated**: 2026-08-10 · after PR #1 (bronze), third review round

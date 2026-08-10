@@ -120,7 +120,16 @@ CREATE OR REPLACE FILE FORMAT ff_client_csv
     FIELD_OPTIONALLY_ENCLOSED_BY   = '"'
     TRIM_SPACE                     = TRUE
     EMPTY_FIELD_AS_NULL            = TRUE
-    REPLACE_INVALID_CHARACTERS     = TRUE
+    REPLACE_INVALID_CHARACTERS     = FALSE
     COMMENT = 'Client master-data CSVs. Skips the exporter banner plus header.';
+
+/* REPLACE_INVALID_CHARACTERS = FALSE matches ff_raw_text above, and for the
+   same reason: both formats land in bronze, which ARCHITECTURE.md declares the
+   replay source for everything downstream. TRUE would rewrite malformed UTF-8
+   to U+FFFD, and nothing in 05_validate_bronze.sql can detect a substitution —
+   a Latin-1 é in a customer name would become Jos� in bronze with the
+   original byte unrecoverable, while the XML path aborted loudly on the same
+   input. Divergent handling of the same class of corruption, in the same layer,
+   is not a defensible contract. */
 
 SHOW FILE FORMATS IN SCHEMA bronze;
