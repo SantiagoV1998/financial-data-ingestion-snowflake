@@ -118,18 +118,38 @@ CREATE OR REPLACE FILE FORMAT ff_client_csv
     SKIP_HEADER                    = 2
     SKIP_BLANK_LINES               = TRUE
     FIELD_OPTIONALLY_ENCLOSED_BY   = '"'
-    TRIM_SPACE                     = TRUE
+    ESCAPE_UNENCLOSED_FIELD        = NONE
+    TRIM_SPACE                     = FALSE
     EMPTY_FIELD_AS_NULL            = TRUE
     REPLACE_INVALID_CHARACTERS     = FALSE
     COMMENT = 'Client master-data CSVs. Skips the exporter banner plus header.';
 
-/* REPLACE_INVALID_CHARACTERS = FALSE matches ff_raw_text above, and for the
-   same reason: both formats land in bronze, which ARCHITECTURE.md declares the
-   replay source for everything downstream. TRUE would rewrite malformed UTF-8
-   to U+FFFD, and nothing in 05_validate_bronze.sql can detect a substitution —
-   a Latin-1 é in a customer name would become Jos� in bronze with the
+/* The three byte-preservation options mirror ff_raw_text deliberately. Both
+   formats land in bronze, which ARCHITECTURE.md declares the replay source for
+   everything downstream, so both owe the same lossless contract — and none of
+   the checks in 05_validate_bronze.sql can detect a value that was quietly
+   altered on the way in.
+
+   ESCAPE_UNENCLOSED_FIELD = NONE — the default is backslash. A name like
+   ACME\Retail or DOMAIN\user would lose the backslash, and a \, in an
+   unenclosed field would be read as an escaped comma, so the field would not
+   split and every later value would shift one column left, landing an email in
+   loyalty_tier.
+
+   TRIM_SPACE = FALSE — with EMPTY_FIELD_AS_NULL, trimming makes a field of
+   pure whitespace indistinguishable from one that was genuinely absent.
+   Padded values are exactly the kind of signal silver should quarantine, so
+   bronze must not erase it first. (Empty fields still become NULL: ,, means
+   absent in CSV, and that reading is not an alteration.)
+
+   REPLACE_INVALID_CHARACTERS = FALSE — TRUE rewrites malformed UTF-8 to
+   U+FFFD. A Latin-1 é in a customer name would become Jos� here with the
    original byte unrecoverable, while the XML path aborted loudly on the same
-   input. Divergent handling of the same class of corruption, in the same layer,
-   is not a defensible contract. */
+   input.
+
+   None of the three is triggered by the current files: they contain no
+   backslashes, no padded fields and no invalid UTF-8. That is precisely why
+   they are set now — a latent defect surfaces on the next client drop, when
+   nobody is looking at this file. */
 
 SHOW FILE FORMATS IN SCHEMA bronze;

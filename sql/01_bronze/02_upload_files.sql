@@ -25,14 +25,20 @@ USE WAREHOUSE wh_ingestion;
 USE DATABASE financial_ingestion;
 USE SCHEMA bronze;
 
-/* Clear the stage first. OVERWRITE only replaces a file of the same name, so a
-   path previously staged with AUTO_COMPRESS = TRUE would leave Customer.csv.gz
-   sitting beside the new Customer.csv. The COPY statements reference stage
-   paths as prefixes, and the raw-text PATTERN accepts an optional .gz, so both
-   names would match and every row would load twice. REMOVE makes the staged
-   state a function of data/ alone rather than of upload history. */
-REMOVE @raw_files/client_a/;
-REMOVE @raw_files/client_b/;
+/* Clear stale compressed copies before uploading. OVERWRITE only replaces a
+   file of the same name, so a path previously staged with AUTO_COMPRESS = TRUE
+   would leave Customer.csv.gz sitting beside the new Customer.csv. The COPY
+   statements reference stage paths as prefixes, and the raw-text PATTERN
+   accepts an optional .gz, so both names would match and every row would load
+   twice.
+
+   Scoped to *.gz rather than clearing the whole path. An unqualified REMOVE
+   runs before the PUTs and succeeds regardless of the working directory — so
+   running this script from anywhere but the repository root, the one failure
+   mode the README warns about, would empty the stage while the PUTs fail. The
+   next load would then truncate all eight tables and load nothing. */
+REMOVE @raw_files/client_a/ PATTERN = '.*[.]gz';
+REMOVE @raw_files/client_b/ PATTERN = '.*[.]gz';
 
 PUT 'file://data/client_a/*' @raw_files/client_a/
     AUTO_COMPRESS = FALSE

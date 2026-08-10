@@ -58,7 +58,7 @@ snow sql -c <connection> -f sql/01_bronze/01_stage_and_file_formats.sql
 snow sql -c <connection> -f sql/01_bronze/02_upload_files.sql
 snow sql -c <connection> -f sql/01_bronze/03_raw_ingestion_ddl.sql
 snow sql -c <connection> -f sql/01_bronze/04_load_bronze.sql
-snow sql -c <connection> -f sql/01_bronze/05_validate_bronze.sql   # must print 13 PASS
+snow sql -c <connection> -f sql/01_bronze/05_validate_bronze.sql   # must print 14 PASS
 ```
 
 The **load** scripts are idempotent — each truncates before copying, and the

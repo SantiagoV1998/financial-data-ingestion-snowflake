@@ -172,7 +172,7 @@ afterwards is correct for a fresh account and a pre-existing one alike.
 
 ## D11 · Assert the load, do not assume it
 
-**Decision**: `05_validate_bronze.sql` checks 13 invariants and raises if any
+**Decision**: `05_validate_bronze.sql` checks 14 invariants and raises if any
 fails.
 
 **Why**: the pipeline has a silent-failure mode. If `PUT` stages nothing — wrong
@@ -254,4 +254,4 @@ nothing in the validation can detect a substitution after the fact. A Latin-1
 handling of the same class of corruption within the same layer is not a
 defensible contract.
 
-**Last updated**: 2026-08-10 · after PR #1 (bronze), third review round
+**Last updated**: 2026-08-10 · after PR #1 (bronze), fourth review round

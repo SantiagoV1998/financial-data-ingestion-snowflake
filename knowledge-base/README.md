@@ -42,8 +42,8 @@ auto-suspend), schemas `bronze` / `silver` / `gold`, all owned by the
 `ingestion_engineer` role. `ACCOUNTADMIN` is used only to create the role and
 warehouse in `00_setup`, never to own pipeline objects.
 
-`sql/01_bronze/05_validate_bronze.sql` asserts 13 load invariants and raises on
-failure. All 13 pass.
+`sql/01_bronze/05_validate_bronze.sql` asserts 14 load invariants and raises on
+failure. All 14 pass.
 
 Bronze is loaded and verified:
 
@@ -141,4 +141,4 @@ FROM cleaned_lines;
   Claims about data are cheap to check and expensive to get wrong.
 - Documentation is updated in the same PR as the code it describes.
 
-**Last updated**: 2026-08-10 · after PR #1 (bronze), third review round
+**Last updated**: 2026-08-10 · after PR #1 (bronze), fourth review round

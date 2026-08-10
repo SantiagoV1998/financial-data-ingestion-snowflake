@@ -66,9 +66,21 @@ WITH checks AS (
     SELECT 'no_null_text_lines',      0,
            (SELECT COUNT(*) FROM raw_text_lines WHERE line_text IS NULL)
     UNION ALL
-    -- No carriage returns survived the CRLF source files.
-    SELECT 'no_carriage_returns',     0,
+    -- No carriage returns survived the CRLF source files, on either path.
+    SELECT 'no_carriage_returns_text', 0,
            (SELECT COUNT(*) FROM raw_text_lines WHERE CONTAINS(line_text, CHR(13)))
+    UNION ALL
+    -- The CSVs are the same CRLF files read through a different format, which
+    -- also leaves RECORD_DELIMITER unpinned. A stray \r would land on the last
+    -- column of each row ('true\r', 'SETTLED\r') and pass every count check.
+    SELECT 'no_carriage_returns_csv',  0,
+           (SELECT COUNT(*) FROM raw_client_a_customers WHERE CONTAINS(is_active,    CHR(13)))
+         + (SELECT COUNT(*) FROM raw_client_a_orders    WHERE CONTAINS(channel,      CHR(13)))
+         + (SELECT COUNT(*) FROM raw_client_a_products  WHERE CONTAINS(is_active,    CHR(13)))
+         + (SELECT COUNT(*) FROM raw_client_b_customers WHERE CONTAINS(is_active,    CHR(13)))
+         + (SELECT COUNT(*) FROM raw_client_b_orders    WHERE CONTAINS(order_status, CHR(13)))
+         + (SELECT COUNT(*) FROM raw_client_b_products  WHERE CONTAINS(is_active,    CHR(13)))
+         + (SELECT COUNT(*) FROM raw_client_b_payments  WHERE CONTAINS(status,       CHR(13)))
 )
 SELECT check_name,
        expected,
