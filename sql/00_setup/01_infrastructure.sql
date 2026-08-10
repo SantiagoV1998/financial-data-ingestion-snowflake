@@ -42,11 +42,6 @@ CREATE SCHEMA IF NOT EXISTS silver
 CREATE SCHEMA IF NOT EXISTS gold
     COMMENT = 'Canonical model conformed across all client sources.';
 
-/* Snowflake permits nondeterministic MERGE by default, which silently produces
-   arbitrary results when several source rows match one target row. Fail loudly
-   instead — every MERGE in this project deduplicates its source first. */
-ALTER SESSION SET ERROR_ON_NONDETERMINISTIC_MERGE = TRUE;
-
 USE WAREHOUSE wh_ingestion;
 
 SHOW SCHEMAS IN DATABASE financial_ingestion;
