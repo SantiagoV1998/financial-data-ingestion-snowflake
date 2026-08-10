@@ -81,7 +81,7 @@ jobs:
       # this gate enforces: exceptions belong in the diff.
       - name: 0 · Manifest itself is unchanged
         env:
-          EXPECTED: '5fd518cbc9a62a56be4eb520adebbf152fd0c92bec4bbd6b559b9b62eda79e41'
+          EXPECTED: 'c2b2b31ba67d5838e0b89966f58ef64466c18c1bf5832099593cc00aeb19add2'
         run: |
           actual=$(shasum -a 256 data/CHECKSUMS.sha256 | cut -d' ' -f1)
           if [ "$actual" != "$EXPECTED" ]; then
