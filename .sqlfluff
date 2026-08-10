@@ -9,7 +9,12 @@
 [sqlfluff]
 dialect = snowflake
 templater = raw
-max_line_length = 88
+
+# Set to a limit that actually binds. The longest line in sql/ is 102 characters,
+# so 110 leaves room without licensing unbounded growth. LT05 is deliberately NOT
+# excluded — a line-length setting that no enabled rule reads is a config that
+# lies about what it enforces.
+max_line_length = 110
 
 # Disabled, with reasons:
 #
@@ -18,7 +23,6 @@ max_line_length = 88
 #         30-option format readable at a glance; collapsing it to single spaces
 #         would cost clarity and catch nothing.
 #   LT02  indentation — same reason, applied to aligned column lists.
-#   LT05  long lines — comment prose is wrapped for reading, not for a linter.
 #   LT08  blank line after CTE — cosmetic.
 #   LT09  select targets on separate lines — noisy on single-expression selects.
 #   LT14  keyword newline — would force WHERE onto its own line inside the
@@ -36,12 +40,9 @@ max_line_length = 88
 #         validation view's UNION ALL. Only the first SELECT of a UNION names
 #         the output columns, so aliases on the remaining branches are ignored
 #         by the engine: pure noise.
-#   ST06  select wildcard ordering — not applicable here.
 #   AM04  unknown column count from SELECT * — every use is a deliberate
 #         passthrough of a stage or a view.
-#   RF02  qualified columns in multi-table queries — the validation view uses
-#         scalar subqueries where qualification adds noise, not clarity.
-exclude_rules = LT01, LT02, LT05, LT08, LT09, LT14, CP02, RF04, AL03, ST06, AM04, RF02
+exclude_rules = LT01, LT02, LT08, LT09, LT14, CP02, RF04, AL03, AM04
 
 [sqlfluff:indentation]
 tab_space_size = 4
@@ -73,3 +74,16 @@ aliasing = explicit
 
 [sqlfluff:rules:ambiguous.column_references]
 group_by_and_order_by_style = consistent
+
+# Deliberately NOT excluded, though both currently report zero violations:
+#
+#   RF02  references.qualification — the only rule here that flags an
+#         unqualified column in a multi-table query. The silver layer will join
+#         master data to transactions, and an unqualified customer_id there
+#         lints clean but fails at runtime with "ambiguous column name". AL01
+#         does not cover this: it enforces the AS keyword when an alias is
+#         present, it does not require one.
+#   ST06  structure.column_order — costs nothing to leave on.
+#
+# Excluding a rule that fires zero times buys no quiet and forfeits future
+# coverage.

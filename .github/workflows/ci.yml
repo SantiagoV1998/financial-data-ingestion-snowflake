@@ -5,6 +5,12 @@ on:
   push:
     branches: [main]
 
+# Neither job writes anything. On a repository whose default workflow
+# permissions are still "read and write", omitting this hands both a token with
+# scopes they never use.
+permissions:
+  contents: read
+
 # Cancel superseded runs on the same branch — a PR that gets three pushes in a
 # minute does not need three full CI runs.
 concurrency:
@@ -40,24 +46,44 @@ jobs:
 
       # The central claim of this project is that the source files are ingested
       # byte-identical to delivery and every repair happens in SQL inside
-      # Snowflake. That claim is only worth something if it is enforced: without
-      # this check, someone could quietly "fix" a file — strip a banner, close
-      # the XML root — and the pipeline would still pass while the exercise had
-      # been sidestepped.
-      - name: Verify source checksums
-        run: |
-          shasum -a 256 -c data/CHECKSUMS.sha256
+      # Snowflake. These steps make that claim enforceable rather than asserted.
+      #
+      # The manifest alone cannot do it. CHECKSUMS.sha256 ships inside the PR,
+      # so a PR that edits a source file AND regenerates the manifest satisfies
+      # `shasum -c` perfectly — and GitHub would render a green check named
+      # "Source files unmodified" on a PR that modified a source file. The
+      # comparison against the base branch below is what actually closes it.
+      - name: Verify checksums match the manifest
+        run: shasum -a 256 -c data/CHECKSUMS.sha256
 
-      # Guards the other half: a file added to or removed from data/ without
-      # updating CHECKSUMS.sha256 would go unnoticed, since -c only verifies
-      # the files it lists.
-      - name: Verify no source file was added or removed
+      # Guards the other half: `shasum -c` only verifies the paths the manifest
+      # lists, so a file added to or deleted from data/ would pass unnoticed.
+      # Compares sorted path lists rather than counts — counts are blind to a
+      # rename or a typo that keeps the total the same, and `wc -l` would
+      # miscount a manifest saved without a trailing newline.
+      - name: Verify the manifest covers exactly the files present
         run: |
-          expected=$(wc -l < data/CHECKSUMS.sha256 | tr -d ' ')
-          actual=$(find data -type f ! -name 'CHECKSUMS.sha256' | wc -l | tr -d ' ')
-          echo "listed in CHECKSUMS.sha256: $expected"
-          echo "present in data/:           $actual"
-          if [ "$expected" -ne "$actual" ]; then
-            echo "::error::data/ holds $actual files but CHECKSUMS.sha256 lists $expected"
+          diff <(find data -type f ! -name 'CHECKSUMS.sha256' | sort) \
+               <(awk '{print $2}' data/CHECKSUMS.sha256 | sort) \
+            || { echo "::error::data/ and CHECKSUMS.sha256 list different files"; exit 1; }
+
+      # The real gate. Anything under data/ differing from the base branch fails,
+      # including the manifest itself — so regenerating it cannot launder an
+      # edit to a source file.
+      - name: Verify data/ is unchanged relative to the base branch
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+
+          # A PR that introduces the manifest has nothing to compare against.
+          if ! git cat-file -e FETCH_HEAD:data/CHECKSUMS.sha256 2>/dev/null; then
+            echo "Manifest does not exist on ${{ github.base_ref }} yet — first run, nothing to compare."
+            exit 0
+          fi
+
+          if ! git diff --quiet FETCH_HEAD -- data/; then
+            echo "::error::data/ differs from ${{ github.base_ref }}. Source files are ingested as delivered and must not be edited; if a change is genuinely intended, it needs an explicit review of the diff below."
+            git diff --stat FETCH_HEAD -- data/
             exit 1
           fi
+          echo "data/ is identical to ${{ github.base_ref }}."

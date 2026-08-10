@@ -1,0 +1,17 @@
+# The 15 source files in data/ are CRLF, and the entire bronze layer is built on
+# that fact — 05_validate_bronze.sql asserts zero carriage returns survive
+# ingestion, and data/CHECKSUMS.sha256 pins the exact bytes.
+#
+# Without this, byte-identity depends on each contributor's git config rather
+# than on the repository. A contributor on Git for Windows defaults
+# (core.autocrlf=true) who merely renames or re-adds a file would commit an
+# LF-normalized blob: the checksum gate fails with what looks like a whole-file
+# rewrite, and "fixing" it by regenerating the manifest would quietly make the
+# CR-stripping logic and the no_carriage_returns checks vacuous.
+data/** -text
+
+# Everything else is normal text and may be normalized.
+*.sql   text
+*.md    text
+*.yml   text
+*.yaml  text

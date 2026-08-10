@@ -66,18 +66,23 @@ that loads everything.
 
 ```bash
 sqlfluff lint sql/                      # dialect snowflake, config in .sqlfluff
-shasum -a 256 -c data/CHECKSUMS.sha256  # source files unmodified
+shasum -a 256 -c data/CHECKSUMS.sha256  # bytes match the manifest
+diff <(find data -type f ! -name CHECKSUMS.sha256 | sort) \
+     <(awk '{print $2}' data/CHECKSUMS.sha256 | sort)   # manifest covers every file
 ```
 
 Both run in CI on every PR. The checksum gate enforces the project's central
 claim — that the source files are ingested byte-identical and every repair
 happens in SQL. Without it, someone could quietly "fix" a file and the pipeline
-would pass while the exercise had been sidestepped. If you ever legitimately
-change `data/`, regenerate the manifest:
+would pass while the exercise had been sidestepped.
 
-```bash
-find data -type f ! -name CHECKSUMS.sha256 | sort | xargs shasum -a 256 > data/CHECKSUMS.sha256
-```
+CI adds a third step the local commands cannot replicate: it diffs `data/`
+against the base branch. The manifest ships inside the PR, so on its own it
+proves nothing — a PR that edits a source file *and* regenerates the manifest
+satisfies `shasum -c` perfectly. Comparing against the base is what makes the
+claim enforceable, and it means **regenerating the manifest will not get a
+`data/` change past CI**. That is deliberate: in this project the source files
+are never supposed to change.
 
 `.sqlfluff` disables a number of rules, each with a written reason. Keep it that
 way: a linter silenced without reasons is worse than no linter, because a green
