@@ -62,6 +62,27 @@ it claims. Run it after any change: it raises on failure rather than passing
 quietly, because a run that loads nothing otherwise looks exactly like a run
 that loads everything.
 
+## Quality gates
+
+```bash
+sqlfluff lint sql/                      # dialect snowflake, config in .sqlfluff
+shasum -a 256 -c data/CHECKSUMS.sha256  # source files unmodified
+```
+
+Both run in CI on every PR. The checksum gate enforces the project's central
+claim — that the source files are ingested byte-identical and every repair
+happens in SQL. Without it, someone could quietly "fix" a file and the pipeline
+would pass while the exercise had been sidestepped. If you ever legitimately
+change `data/`, regenerate the manifest:
+
+```bash
+find data -type f ! -name CHECKSUMS.sha256 | sort | xargs shasum -a 256 > data/CHECKSUMS.sha256
+```
+
+`.sqlfluff` disables a number of rules, each with a written reason. Keep it that
+way: a linter silenced without reasons is worse than no linter, because a green
+check then means nothing.
+
 ## Conventions
 
 - **SQL**: keywords uppercase, identifiers `snake_case` and never quoted

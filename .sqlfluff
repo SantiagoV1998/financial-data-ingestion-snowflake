@@ -1,0 +1,75 @@
+# SQLFluff configuration
+# https://docs.sqlfluff.com/
+#
+# Tuned to catch mistakes, not to impose a house style on SQL that is already
+# written and readable. Every exclusion below is justified — a linter silenced
+# without reasons is worse than no linter, because a green check then means
+# nothing.
+
+[sqlfluff]
+dialect = snowflake
+templater = raw
+max_line_length = 88
+
+# Disabled, with reasons:
+#
+#   LT01  spacing — the DDL and FILE FORMAT blocks align values in a column
+#         (FIELD_DELIMITER     = ','). That alignment is deliberate and makes a
+#         30-option format readable at a glance; collapsing it to single spaces
+#         would cost clarity and catch nothing.
+#   LT02  indentation — same reason, applied to aligned column lists.
+#   LT05  long lines — comment prose is wrapped for reading, not for a linter.
+#   LT08  blank line after CTE — cosmetic.
+#   LT09  select targets on separate lines — noisy on single-expression selects.
+#   LT14  keyword newline — would force WHERE onto its own line inside the
+#         one-line scalar subqueries of the validation view, where the whole
+#         point is that each check reads as a single line.
+#   CP02  identifier capitalisation — Snowflake's METADATA$FILENAME and
+#         METADATA$FILE_ROW_NUMBER pseudo-columns, and the system roles
+#         ACCOUNTADMIN / SYSADMIN, are uppercase by universal convention.
+#         Lowercasing them to satisfy a rule would make the SQL less familiar
+#         to anyone who works with Snowflake.
+#   RF04  keywords as identifiers — false positive on this dialect. It flags
+#         first_name, last_name and email, all of which create and load without
+#         complaint in Snowflake; the tables in bronze prove it.
+#   AL03  expression without alias — fires on the scalar subqueries in the
+#         validation view's UNION ALL. Only the first SELECT of a UNION names
+#         the output columns, so aliases on the remaining branches are ignored
+#         by the engine: pure noise.
+#   ST06  select wildcard ordering — not applicable here.
+#   AM04  unknown column count from SELECT * — every use is a deliberate
+#         passthrough of a stage or a view.
+#   RF02  qualified columns in multi-table queries — the validation view uses
+#         scalar subqueries where qualification adds noise, not clarity.
+exclude_rules = LT01, LT02, LT05, LT08, LT09, LT14, CP02, RF04, AL03, ST06, AM04, RF02
+
+[sqlfluff:indentation]
+tab_space_size = 4
+indented_joins = false
+indented_using_on = true
+implicit_indents = allow
+
+[sqlfluff:layout:type:comma]
+line_position = trailing
+
+# Snowflake folds unquoted identifiers to uppercase, so written case is purely a
+# readability choice. The convention here — uppercase keywords, functions, types
+# and literals against lowercase snake_case identifiers — makes structure
+# scannable at a glance.
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = upper
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = upper
+
+[sqlfluff:rules:capitalisation.literals]
+capitalisation_policy = upper
+
+[sqlfluff:rules:capitalisation.types]
+extended_capitalisation_policy = upper
+
+[sqlfluff:rules:aliasing.table]
+aliasing = explicit
+
+[sqlfluff:rules:ambiguous.column_references]
+group_by_and_order_by_style = consistent

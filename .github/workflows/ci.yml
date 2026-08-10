@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Cancel superseded runs on the same branch — a PR that gets three pushes in a
+# minute does not need three full CI runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  sql-lint:
+    name: SQL lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # Pinned: an unpinned linter turns an unrelated release into a red build
+      # on a PR that changed nothing.
+      - name: Install SQLFluff
+        run: pip install --disable-pip-version-check sqlfluff==4.3.0
+
+      # github-annotation-native surfaces violations inline on the diff instead
+      # of burying them in the log.
+      - name: Lint SQL
+        run: sqlfluff lint sql/ --format github-annotation-native
+
+  source-integrity:
+    name: Source files unmodified
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The central claim of this project is that the source files are ingested
+      # byte-identical to delivery and every repair happens in SQL inside
+      # Snowflake. That claim is only worth something if it is enforced: without
+      # this check, someone could quietly "fix" a file — strip a banner, close
+      # the XML root — and the pipeline would still pass while the exercise had
+      # been sidestepped.
+      - name: Verify source checksums
+        run: |
+          shasum -a 256 -c data/CHECKSUMS.sha256
+
+      # Guards the other half: a file added to or removed from data/ without
+      # updating CHECKSUMS.sha256 would go unnoticed, since -c only verifies
+      # the files it lists.
+      - name: Verify no source file was added or removed
+        run: |
+          expected=$(wc -l < data/CHECKSUMS.sha256 | tr -d ' ')
+          actual=$(find data -type f ! -name 'CHECKSUMS.sha256' | wc -l | tr -d ' ')
+          echo "listed in CHECKSUMS.sha256: $expected"
+          echo "present in data/:           $actual"
+          if [ "$expected" -ne "$actual" ]; then
+            echo "::error::data/ holds $actual files but CHECKSUMS.sha256 lists $expected"
+            exit 1
+          fi
