@@ -12,10 +12,17 @@ permissions:
   contents: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  # Only supersede runs on a PR branch. Keyed on github.ref, a plain `true`
-  # would also cancel runs on main: two merges a minute apart would leave the
-  # first merged commit with a cancelled status and no integrity check at all.
+  # PRs group by ref so a new push supersedes the previous run. Pushes group by
+  # SHA so they never share a group and can never cancel one another.
+  #
+  # cancel-in-progress alone is not enough: GitHub cancels *pending* runs in a
+  # concurrency group regardless of that setting. With all pushes to main in one
+  # group, three merges in quick succession would cancel the pending run for the
+  # second — leaving that commit on main with a cancelled status and never
+  # integrity-checked, and no later run covers it either, since step 3 on the
+  # third merge compares against the second's tree rather than the last verified
+  # commit.
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -111,20 +118,25 @@ jobs:
       # Runs on pushes too. Restricting this to pull_request would leave a
       # direct push to main verified only by steps 1 and 2 — which is precisely
       # the hole this step exists to close, relocated rather than fixed.
-      # No opt-out mechanism, deliberately. An earlier version had a
-      # `data-change-approved` label, which did not work and could not: applying
-      # a label does not re-trigger `on: pull_request` (default types are
-      # opened/synchronize/reopened) and a re-run replays the original payload,
-      # so the label was never visible to the run it was meant to unblock. It
-      # also had no counterpart on push, so merging an approved data change left
-      # main red with the very diff that had just been approved.
+      # The exception is the workflow diff itself, and it is self-enforcing.
       #
-      # The right fix was to delete it. In this project the source files are
-      # never supposed to change — that is the entire premise — so an escape
-      # hatch is a mechanism for something that should not happen, and it cost
-      # two defects. If a delivery ever genuinely arrives, the change belongs in
-      # a PR that edits this workflow too, which puts the exception in the diff
-      # where a reviewer sees it.
+      # Changing a source file requires regenerating the manifest, which changes
+      # its digest, which fails step 0 unless EXPECTED is updated here — in this
+      # file. So a legitimate re-delivery cannot avoid touching the workflow,
+      # and this step keys on exactly that. The exception therefore lands where
+      # a reviewer already has to look, and cannot be applied silently.
+      #
+      # Two earlier attempts at this failed and are worth recording. A
+      # `data-change-approved` label could not work: applying a label does not
+      # re-trigger `on: pull_request` (default types are
+      # opened/synchronize/reopened), a re-run replays the original payload, and
+      # push events have no labels at all — so merging an approved change left
+      # main red with the diff that had just been approved. Deleting the label
+      # and documenting "edit the workflow too" was no better: nothing in this
+      # step read the workflow, so following the documented procedure still
+      # could not turn CI green, and an admin merge reproduced the same red
+      # main. Reading the workflow diff here is what makes the documented
+      # remedy true.
       - name: 3 · Source files unchanged relative to the base
         env:
           # Passed through env rather than interpolated into the script. A branch
@@ -163,9 +175,20 @@ jobs:
 
           # The manifest is excluded on purpose: this step compares the source
           # files themselves, so regenerating the manifest cannot hide an edit.
-          if ! git diff --quiet "$base" HEAD -- data/ ':(exclude)data/CHECKSUMS.sha256'; then
-            echo "::error::Source files under data/ differ from the base. They are ingested exactly as delivered and must not be edited. If a delivery genuinely changed, the PR must edit this workflow as well, so the exception appears in the diff."
-            git diff --stat "$base" HEAD -- data/ ':(exclude)data/CHECKSUMS.sha256'
-            exit 1
+          if git diff --quiet "$base" HEAD -- data/ ':(exclude)data/CHECKSUMS.sha256'; then
+            echo "Source files under data/ are identical to the base."
+            exit 0
           fi
-          echo "Source files under data/ are identical to the base."
+
+          # data/ changed. Allowed only when this workflow changed too, which a
+          # genuine re-delivery cannot avoid: the new manifest has a new digest,
+          # and step 0 fails until EXPECTED is updated in this file.
+          if ! git diff --quiet "$base" HEAD -- .github/workflows/ci.yml; then
+            echo "::warning::Source files under data/ changed, and this workflow changed with them — treating it as a reviewed re-delivery. The diff below must be checked deliberately."
+            git diff --stat "$base" HEAD -- data/ ':(exclude)data/CHECKSUMS.sha256'
+            exit 0
+          fi
+
+          echo "::error::Source files under data/ differ from the base. They are ingested exactly as delivered and must not be edited. If a delivery genuinely changed, regenerate data/CHECKSUMS.sha256 and update EXPECTED in this workflow in the same PR — that is what marks the change as reviewed."
+          git diff --stat "$base" HEAD -- data/ ':(exclude)data/CHECKSUMS.sha256'
+          exit 1

@@ -84,11 +84,16 @@ claim enforceable, and it means **regenerating the manifest will not get a
 `data/` change past CI**. That is deliberate: in this project the source files
 are never supposed to change.
 
-There is no opt-out flag, on purpose. If a delivery genuinely changed, the PR
-must edit `.github/workflows/ci.yml` as well — which puts the exception in the
-diff where a reviewer will see it, instead of behind a label that waves it
-through. Regenerate the manifest with NUL-delimited paths, since a delivered
-filename may contain spaces:
+There is no opt-out flag. The exception is the workflow diff itself, and it is
+self-enforcing: changing a source file forces a new manifest, a new manifest has
+a new digest, and the digest is pinned as `EXPECTED` in
+`.github/workflows/ci.yml`. So a re-delivery cannot avoid touching the workflow —
+and step 3 keys on exactly that, allowing a `data/` change only when the workflow
+changed with it. The exception lands where a reviewer already has to look.
+
+To land a genuine re-delivery, in one PR: replace the files, regenerate the
+manifest with NUL-delimited paths (a delivered filename may contain spaces), and
+update `EXPECTED`.
 
 ```bash
 git ls-files -z data | grep -zvx 'data/CHECKSUMS\.sha256' | sort -z \
