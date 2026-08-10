@@ -23,3 +23,20 @@ Thumbs.db
 # Temporary exports
 tmp/
 *.tmp
+
+# Nothing under data/ may ever be ignored.
+#
+# The patterns above are not exotic and a client delivery could match any of
+# them — credentials*, *.key, *.tmp, config.toml, .env.* all describe plausible
+# filenames. A delivered file that `git add` silently skips is invisible to
+# every integrity check, because both the manifest and the coverage comparison
+# derive from the git index: it never reaches Snowflake while CI reports green
+# and the documentation asserts the delivery is committed byte-identical.
+#
+# This negation is the fix. An earlier attempt used a CI step running
+# `git ls-files --others --ignored -- data/`, which can never fire: that lists
+# untracked files in the working tree, and a fresh CI checkout contains only
+# tracked ones — so the check passed unconditionally while the blind spot stayed
+# fully open. The property has to hold at the point files are staged, not in CI.
+!data/**
+

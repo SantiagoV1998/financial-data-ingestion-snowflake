@@ -133,10 +133,14 @@ FROM cleaned_lines;
 
 ## Repository protections
 
-`main` is protected: no direct pushes, no force-pushes, both CI checks required,
-enforced for admins too. This is load-bearing rather than hygiene — the
-source-integrity gate's one exception assumes a reviewer sees the diff, which is
-only true when changes must arrive through a PR. See D16.
+`main` is protected: force-pushes and deletions rejected, both CI checks
+required, enforced for admins, a PR required to merge.
+
+Read D16 before relying on it. The protection guarantees that nothing reaches
+`main` without passing CI — but **not** that every change was reviewed. With one
+collaborator no configuration provides that, and a commit already carrying green
+checks can be pushed straight to `main`; this was verified, and it succeeded.
+The re-delivery exception is therefore enforced by discipline, not by GitHub.
 
 ## Working agreement
 

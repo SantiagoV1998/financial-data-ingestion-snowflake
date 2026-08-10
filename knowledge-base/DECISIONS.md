@@ -256,24 +256,43 @@ defensible contract.
 
 ---
 
-## D16 · Branch protection is part of the integrity control
+## D16 · Branch protection, and the guarantee it does not give
 
-**Decision**: `main` is protected — direct pushes and force-pushes rejected,
-both CI checks required, `enforce_admins` on. The repository is public, which is
-what makes protection available (GitHub gates it behind public or Pro).
+**Decision**: `main` is protected — force-pushes and deletions rejected, both CI
+checks required, `enforce_admins` on, a pull request required to merge. The
+repository is public, which is what makes protection available at all (GitHub
+gates it behind public or Pro).
 
-**Why**: the source-integrity gate allows one exception — a genuine re-delivery,
-recognised by the pinned digest changing alongside the data. That exception is
-justified by "it lands in a diff a reviewer reads". On a direct push to `main`
-there is no reviewer, and anyone tampering has to update the pin anyway to get
-past step 0 — so the exception would concede itself.
+**What this actually guarantees**: no code reaches `main` without passing CI, the
+history cannot be rewritten, and the branch cannot be deleted. That is worth
+having and it is enforced.
 
-No amount of workflow logic fixes that; it is a property of who can write to the
-branch. Three earlier attempts tried to solve it inside the workflow (a label, a
-documented convention, a workflow-diff check) and each introduced its own defect.
+**What it does not guarantee, despite an earlier version of this entry claiming
+otherwise**: that every change was read by a reviewer. This repository has one
+collaborator, and no configuration produces that property with one person:
 
-**Verified**: a direct push to `main` is rejected with
-`GH006: Protected branch update failed ... 2 of 2 required status checks are
-expected`.
+| Setting | Result |
+|---|---|
+| 1 approval required | Nobody can approve, so `main` freezes — nothing can merge |
+| 0 approvals required | Does not block a direct push, verified below |
+
+**Verified, and it failed**: with `required_pull_request_reviews` present at 0
+approvals and `enforce_admins: true`, `git push origin <green-PR-head>:main` was
+**accepted** and merged PR #2 without going through the pull request. A commit
+that already carries green check runs satisfies the required contexts, so the
+protection has nothing left to object to. An earlier note in this file recorded
+`GH006: Protected branch update failed` as proof the hole was closed — that test
+used a *fresh* commit with no check runs, which is a different case, and
+generalising from it was wrong.
+
+**Consequence for the re-delivery exception** (D14, step 3 of the integrity gate):
+its stated justification was "the exception lands in a diff a reviewer reads".
+For a solo repository that is a convention, not a control. The exception is still
+narrow — it requires the pinned digest to change in the same commit — but it is
+honest to say it is enforced by discipline rather than by GitHub.
+
+**How to make it a real control**: add a second collaborator and require one
+approving review. That is a team property, not a configuration trick, and it is
+the only thing that closes it.
 
 **Last updated**: 2026-08-10 · after PR #1 (bronze), sixth review round

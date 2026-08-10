@@ -111,7 +111,7 @@ jobs:
       # file merely containing that substring would be dropped from both sides.
       - name: 2 · Manifest covers exactly the files present
         run: |
-          diff <(git -c core.quotePath=false ls-files data | grep -vx 'data/CHECKSUMS.sha256' | sort) \
+          diff <(git -c core.quotePath=false ls-files data | grep -vx 'data/CHECKSUMS\\.sha256' | sort) \
                <(sed 's/^[0-9a-f]\{64\}  //' data/CHECKSUMS.sha256 | sort) \
             || { echo "::error::data/ and CHECKSUMS.sha256 list different files"; exit 1; }
 
@@ -137,21 +137,28 @@ jobs:
       # could not turn CI green, and an admin merge reproduced the same red
       # main. Reading the workflow diff here is what makes the documented
       # remedy true.
-      # Steps 1 and 2 both derive from the git index, and so does the manifest.
-      # A delivered file that `git add` silently skips therefore appears on
-      # neither side and no gate notices — while CLAUDE.md keeps asserting the
-      # delivery is committed byte-identical. The .gitignore patterns are not
-      # exotic: credentials*, *.key, *.tmp, config.toml and .env.* all match
-      # plausible delivery names, verified with git check-ignore.
-      - name: 2b · No delivered file is hidden by .gitignore
+      # Steps 1 and 2 both derive from the git index, and so does the manifest,
+      # so a delivered file that `git add` silently skips is invisible to all of
+      # them — it never reaches Snowflake while CI reports green.
+      #
+      # This checks the .gitignore *property*, not the presence of files. An
+      # earlier version ran `git ls-files --others --ignored -- data/`, which
+      # cannot work in CI: that lists untracked working-tree files, and a fresh
+      # checkout has only tracked ones, so it passed unconditionally while the
+      # blind spot stayed open. The real fix is the `!data/**` negation in
+      # .gitignore; this step exists to stop that negation being removed or
+      # shadowed by a later pattern.
+      - name: 2b · .gitignore cannot hide a delivered file
         run: |
-          hidden=$(git ls-files --others --ignored --exclude-standard -- data/)
-          if [ -n "$hidden" ]; then
-            echo "::error::Files under data/ are present but ignored by .gitignore, so they are invisible to every other check:"
-            echo "$hidden"
-            exit 1
-          fi
-          echo "No ignored files under data/."
+          failed=0
+          for probe in credentials_export.csv signing.key Ordenes.tmp config.toml .env.local secrets.pem; do
+            if git check-ignore -q "data/probe_client/$probe"; then
+              echo "::error::.gitignore would hide data/probe_client/$probe — a delivery with that name would be invisible to every other check."
+              failed=1
+            fi
+          done
+          [ "$failed" -eq 0 ] || exit 1
+          echo ".gitignore cannot hide anything under data/."
 
       - name: 3 · Source files unchanged relative to the base
         env:
@@ -198,13 +205,15 @@ jobs:
 
           # data/ changed. Allowed only when the pinned digest changed with it.
           #
-          # This exception is safe only because main is a protected branch:
-          # direct pushes and force-pushes are rejected (GH006) and both checks
-          # are required, with enforce_admins on. Without that, the exception
-          # would concede itself — a tamperer has to update EXPECTED anyway to
-          # satisfy step 0, and on a direct push there is no reviewer for the
-          # diff this exception assumes will be read. The protection is part of
-          # the control, not an optional extra; see knowledge-base/DECISIONS.md
+          # Branch protection makes this narrower but does not fully close it.
+          # Force-pushes and deletions are rejected and both checks are required,
+          # so nothing reaches main without passing CI. It does not guarantee a
+          # reviewer saw the diff: with a single collaborator, requiring an
+          # approval would freeze the branch, and requiring none does not block a
+          # direct push — verified, a commit already carrying green checks was
+          # accepted straight onto main. The exception is kept deliberately
+          # narrow (the pinned digest must change in the same commit) but it is
+          # enforced by discipline, not by GitHub. See knowledge-base/DECISIONS.md
           # D16.
           #
           # Keyed on the EXPECTED line specifically, not on "ci.yml changed at
@@ -212,8 +221,13 @@ jobs:
           # bumping the SQLFluff version in the same PR would have waved a data
           # change through — and it would have become a silent bypass if
           # EXPECTED were ever moved to a repo variable or a separate file.
-          if git diff -U0 "$base" HEAD -- .github/workflows/ci.yml \
-               | grep -qE "^[+-][[:space:]]*EXPECTED:"; then
+          # Captured into a variable rather than piped into `grep -q`: under
+          # `set -o pipefail`, grep -q exits at the first match and closes the
+          # pipe, so a large diff still being written dies on SIGPIPE (141) and
+          # the whole condition inverts — rejecting a legitimate re-delivery
+          # precisely because EXPECTED did change.
+          workflow_diff=$(git diff -U0 "$base" HEAD -- .github/workflows/ci.yml)
+          if printf '%s' "$workflow_diff" | grep -E "^[+-][[:space:]]*EXPECTED:" >/dev/null; then
             echo "::warning::Source files under data/ changed and the pinned digest was updated with them — treating this as a reviewed re-delivery. The diff below must be checked deliberately."
             git diff --stat "$base" HEAD -- data/ ':(exclude)data/CHECKSUMS.sha256'
             exit 0

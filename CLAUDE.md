@@ -71,13 +71,16 @@ diff <(git -c core.quotePath=false ls-files data | grep -vx data/CHECKSUMS.sha25
      <(sed 's/^[0-9a-f]\{64\}  //' data/CHECKSUMS.sha256 | sort)  # manifest covers every file
 ```
 
-Both run in CI on every PR. The checksum gate enforces the project's central
+CI runs five steps: the manifest's own pinned digest (0), the checksums (1),
+manifest coverage (2), a check that `.gitignore` cannot hide a delivered file
+(2b), and a diff of the source files against the base (3). The commands above
+mirror steps 1 and 2; the other three have no local equivalent. The checksum gate enforces the project's central
 claim — that the source files are ingested byte-identical and every repair
 happens in SQL. Without it, someone could quietly "fix" a file and the pipeline
 would pass while the exercise had been sidestepped.
 
-CI adds a third step the local commands cannot replicate: it diffs `data/`
-against the base branch. The manifest ships inside the PR, so on its own it
+CI adds what the local commands cannot replicate: it diffs `data/` against the
+base branch. The manifest ships inside the PR, so on its own it
 proves nothing — a PR that edits a source file *and* regenerates the manifest
 satisfies `shasum -c` perfectly. Comparing against the base is what makes the
 claim enforceable, and it means **regenerating the manifest will not get a
@@ -98,9 +101,11 @@ delivered file that has not been staged is omitted from the manifest and CI then
 fails on a manifest that looks corrupt.
 
 ```bash
-git add data
+git add data                                    # stage the delivery FIRST —
+                                                # the next command reads the index
 git ls-files -z data | grep -zvx 'data/CHECKSUMS\.sha256' | sort -z \
   | xargs -0 shasum -a 256 > data/CHECKSUMS.sha256
+git add data/CHECKSUMS.sha256                   # and stage the new manifest
 ```
 
 Then update `EXPECTED` in `.github/workflows/ci.yml` to the new digest of the
