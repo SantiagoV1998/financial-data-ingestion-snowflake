@@ -91,11 +91,14 @@ a new digest, and the digest is pinned as `EXPECTED` in
 and step 3 keys on exactly that, allowing a `data/` change only when the workflow
 changed with it. The exception lands where a reviewer already has to look.
 
-To land a genuine re-delivery, in one PR: replace the files, regenerate the
-manifest with NUL-delimited paths (a delivered filename may contain spaces), and
-update `EXPECTED`.
+To land a genuine re-delivery, in one PR: replace the files, **`git add data`**,
+regenerate the manifest, and update `EXPECTED`. The `git add` is not optional —
+the regeneration command reads the *index*, not the working tree, so a newly
+delivered file that has not been staged is omitted from the manifest and CI then
+fails on a manifest that looks corrupt.
 
 ```bash
+git add data
 git ls-files -z data | grep -zvx 'data/CHECKSUMS\.sha256' | sort -z \
   | xargs -0 shasum -a 256 > data/CHECKSUMS.sha256
 ```

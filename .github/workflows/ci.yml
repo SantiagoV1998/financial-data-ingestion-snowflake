@@ -137,6 +137,22 @@ jobs:
       # could not turn CI green, and an admin merge reproduced the same red
       # main. Reading the workflow diff here is what makes the documented
       # remedy true.
+      # Steps 1 and 2 both derive from the git index, and so does the manifest.
+      # A delivered file that `git add` silently skips therefore appears on
+      # neither side and no gate notices — while CLAUDE.md keeps asserting the
+      # delivery is committed byte-identical. The .gitignore patterns are not
+      # exotic: credentials*, *.key, *.tmp, config.toml and .env.* all match
+      # plausible delivery names, verified with git check-ignore.
+      - name: 2b · No delivered file is hidden by .gitignore
+        run: |
+          hidden=$(git ls-files --others --ignored --exclude-standard -- data/)
+          if [ -n "$hidden" ]; then
+            echo "::error::Files under data/ are present but ignored by .gitignore, so they are invisible to every other check:"
+            echo "$hidden"
+            exit 1
+          fi
+          echo "No ignored files under data/."
+
       - name: 3 · Source files unchanged relative to the base
         env:
           # Passed through env rather than interpolated into the script. A branch
@@ -180,15 +196,22 @@ jobs:
             exit 0
           fi
 
-          # data/ changed. Allowed only when this workflow changed too, which a
-          # genuine re-delivery cannot avoid: the new manifest has a new digest,
-          # and step 0 fails until EXPECTED is updated in this file.
-          if ! git diff --quiet "$base" HEAD -- .github/workflows/ci.yml; then
-            echo "::warning::Source files under data/ changed, and this workflow changed with them — treating it as a reviewed re-delivery. The diff below must be checked deliberately."
+          # data/ changed. Allowed only when the pinned digest changed with it.
+          #
+          # Keyed on the EXPECTED line specifically, not on "ci.yml changed at
+          # all". The looser check coupled the exception to an unrelated edit —
+          # bumping the SQLFluff version in the same PR would have waved a data
+          # change through — and it would have become a silent bypass if
+          # EXPECTED were ever moved to a repo variable or a separate file.
+          if git diff -U0 "$base" HEAD -- .github/workflows/ci.yml \
+               | grep -qE "^[+-][[:space:]]*EXPECTED:"; then
+            echo "::warning::Source files under data/ changed and the pinned digest was updated with them — treating this as a reviewed re-delivery. The diff below must be checked deliberately."
             git diff --stat "$base" HEAD -- data/ ':(exclude)data/CHECKSUMS.sha256'
             exit 0
           fi
 
-          echo "::error::Source files under data/ differ from the base. They are ingested exactly as delivered and must not be edited. If a delivery genuinely changed, regenerate data/CHECKSUMS.sha256 and update EXPECTED in this workflow in the same PR — that is what marks the change as reviewed."
+          echo "::error::Source files under data/ differ from the base. They are ingested exactly as delivered and must not be edited."
+          echo "If the content genuinely changed: regenerate data/CHECKSUMS.sha256 and update EXPECTED in this workflow in the same PR — that is what marks the change as reviewed."
+          echo "If only the file MODE changed (chmod), revert it: the bytes are identical, so the manifest and its digest cannot change and the procedure above does not apply."
           git diff --stat "$base" HEAD -- data/ ':(exclude)data/CHECKSUMS.sha256'
           exit 1
