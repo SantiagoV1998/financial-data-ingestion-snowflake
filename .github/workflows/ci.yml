@@ -11,11 +11,12 @@ on:
 permissions:
   contents: read
 
-# Cancel superseded runs on the same branch — a PR that gets three pushes in a
-# minute does not need three full CI runs.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Only supersede runs on a PR branch. Keyed on github.ref, a plain `true`
+  # would also cancel runs on main: two merges a minute apart would leave the
+  # first merged commit with a cancelled status and no integrity check at all.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   sql-lint:
@@ -42,48 +43,75 @@ jobs:
     name: Source files unmodified
     runs-on: ubuntu-latest
     steps:
+      # Full history: computing a merge base is impossible from a shallow clone.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # The central claim of this project is that the source files are ingested
       # byte-identical to delivery and every repair happens in SQL inside
-      # Snowflake. These steps make that claim enforceable rather than asserted.
+      # Snowflake. These three steps make that claim enforceable rather than
+      # asserted, and they are deliberately layered — each covers a way the
+      # others can be defeated.
       #
-      # The manifest alone cannot do it. CHECKSUMS.sha256 ships inside the PR,
-      # so a PR that edits a source file AND regenerates the manifest satisfies
-      # `shasum -c` perfectly — and GitHub would render a green check named
-      # "Source files unmodified" on a PR that modified a source file. The
-      # comparison against the base branch below is what actually closes it.
-      - name: Verify checksums match the manifest
+      #   1. checksums    the 15 files match the manifest
+      #   2. coverage     the manifest lists exactly the files present
+      #   3. base diff    the files themselves are unchanged since the base
+      #
+      # Steps 1 and 2 cannot stand alone: the manifest ships inside the change,
+      # so editing a source file and regenerating the manifest satisfies both.
+      # Step 3 is what closes that, and it deliberately ignores the manifest —
+      # comparing the source files directly means a regenerated manifest has
+      # nothing to launder.
+      - name: 1 · Checksums match the manifest
         run: shasum -a 256 -c data/CHECKSUMS.sha256
 
-      # Guards the other half: `shasum -c` only verifies the paths the manifest
-      # lists, so a file added to or deleted from data/ would pass unnoticed.
-      # Compares sorted path lists rather than counts — counts are blind to a
-      # rename or a typo that keeps the total the same, and `wc -l` would
-      # miscount a manifest saved without a trailing newline.
-      - name: Verify the manifest covers exactly the files present
+      # git ls-files, not find: find walks the working tree, so a gitignored
+      # .DS_Store would be reported as an uncovered file.
+      # sed, not awk '{print $2}': the manifest format is `hash␠␠path`, and $2
+      # truncates any path containing a space.
+      - name: 2 · Manifest covers exactly the files present
         run: |
-          diff <(find data -type f ! -name 'CHECKSUMS.sha256' | sort) \
-               <(awk '{print $2}' data/CHECKSUMS.sha256 | sort) \
+          diff <(git ls-files data | grep -v 'CHECKSUMS.sha256' | sort) \
+               <(sed 's/^[0-9a-f]\{64\}  //' data/CHECKSUMS.sha256 | sort) \
             || { echo "::error::data/ and CHECKSUMS.sha256 list different files"; exit 1; }
 
-      # The real gate. Anything under data/ differing from the base branch fails,
-      # including the manifest itself — so regenerating it cannot launder an
-      # edit to a source file.
-      - name: Verify data/ is unchanged relative to the base branch
-        if: github.event_name == 'pull_request'
+      # Runs on pushes too. Restricting this to pull_request would leave a
+      # direct push to main verified only by steps 1 and 2 — which is precisely
+      # the hole this step exists to close, relocated rather than fixed.
+      - name: 3 · Source files unchanged relative to the base
+        if: >-
+          !contains(github.event.pull_request.labels.*.name, 'data-change-approved')
         run: |
-          git fetch --no-tags --depth=1 origin "${{ github.base_ref }}"
+          set -euo pipefail
 
-          # A PR that introduces the manifest has nothing to compare against.
-          if ! git cat-file -e FETCH_HEAD:data/CHECKSUMS.sha256 2>/dev/null; then
-            echo "Manifest does not exist on ${{ github.base_ref }} yet — first run, nothing to compare."
-            exit 0
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch --no-tags origin "${{ github.base_ref }}"
+            # Merge base, not the base tip: a two-point diff would fail every
+            # open PR the moment data/ legitimately changed on main, naming
+            # files those PRs never touched.
+            base=$(git merge-base FETCH_HEAD HEAD)
+          else
+            base="${{ github.event.before }}"
+            if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+              echo "::error::No previous commit to compare against on this push."
+              exit 1
+            fi
           fi
 
-          if ! git diff --quiet FETCH_HEAD -- data/; then
-            echo "::error::data/ differs from ${{ github.base_ref }}. Source files are ingested as delivered and must not be edited; if a change is genuinely intended, it needs an explicit review of the diff below."
-            git diff --stat FETCH_HEAD -- data/
+          # Fails closed. An earlier version treated "cannot compare" as success,
+          # which meant any unreachable ref silently skipped the whole gate while
+          # reporting green.
+          if ! git cat-file -e "$base^{commit}" 2>/dev/null; then
+            echo "::error::Base commit $base is unreachable; refusing to report success without verifying."
             exit 1
           fi
-          echo "data/ is identical to ${{ github.base_ref }}."
+
+          # The manifest is excluded on purpose: this step compares the source
+          # files themselves, so regenerating the manifest cannot hide an edit.
+          if ! git diff --quiet "$base" HEAD -- data/ ':(exclude)data/CHECKSUMS.sha256'; then
+            echo "::error::Source files under data/ differ from the base. They are ingested exactly as delivered and must not be edited. If a change is genuinely intended — a new client delivery, for instance — apply the 'data-change-approved' label so the diff is reviewed deliberately rather than waved through."
+            git diff --stat "$base" HEAD -- data/
+            exit 1
+          fi
+          echo "Source files under data/ are identical to the base."

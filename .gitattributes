@@ -10,6 +10,13 @@
 # CR-stripping logic and the no_carriage_returns checks vacuous.
 data/** -text
 
+# The manifest is generated, not delivered — it is LF and must stay LF. Left
+# under `-text` above, regenerating it on a machine that emits CRLF (PowerShell
+# redirection, a Windows editor) would append \r to all 15 paths and `shasum -c`
+# would report every source file as "FAILED open or read" — a failure that reads
+# as total corruption when nothing is actually wrong.
+data/CHECKSUMS.sha256 text eol=lf
+
 # Everything else is normal text and may be normalized.
 *.sql   text
 *.md    text

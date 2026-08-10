@@ -67,8 +67,8 @@ that loads everything.
 ```bash
 sqlfluff lint sql/                      # dialect snowflake, config in .sqlfluff
 shasum -a 256 -c data/CHECKSUMS.sha256  # bytes match the manifest
-diff <(find data -type f ! -name CHECKSUMS.sha256 | sort) \
-     <(awk '{print $2}' data/CHECKSUMS.sha256 | sort)   # manifest covers every file
+diff <(git ls-files data | grep -v CHECKSUMS.sha256 | sort) \
+     <(sed 's/^[0-9a-f]\{64\}  //' data/CHECKSUMS.sha256 | sort)  # manifest covers every file
 ```
 
 Both run in CI on every PR. The checksum gate enforces the project's central
@@ -83,6 +83,15 @@ satisfies `shasum -c` perfectly. Comparing against the base is what makes the
 claim enforceable, and it means **regenerating the manifest will not get a
 `data/` change past CI**. That is deliberate: in this project the source files
 are never supposed to change.
+
+If one genuinely must — a new client delivery, say — apply the
+**`data-change-approved`** label to the PR. That skips the base-branch step so
+the diff is reviewed on purpose instead of waved through, while steps 1 and 2
+still verify the manifest matches what is there. Then regenerate it:
+
+```bash
+git ls-files data | grep -v CHECKSUMS.sha256 | sort | xargs shasum -a 256 > data/CHECKSUMS.sha256
+```
 
 `.sqlfluff` disables a number of rules, each with a written reason. Keep it that
 way: a linter silenced without reasons is worse than no linter, because a green
