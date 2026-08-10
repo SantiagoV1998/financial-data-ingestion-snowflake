@@ -145,4 +145,64 @@ plausible, well-argued, and false, disproved by loading the data both ways.
 Claims about data are cheap to check and expensive to get wrong. A comment
 asserting something untrue is worse than no comment, because it is trusted.
 
-**Last updated**: 2026-08-10 · after PR #1 (bronze)
+---
+
+## D10 · A dedicated role owns everything; ACCOUNTADMIN only bootstraps
+
+**Decision**: `ingestion_engineer` owns the database, schemas, stage, file
+formats and tables. `ACCOUNTADMIN` appears only in `00_setup`, to create the
+role and warehouse, and is dropped immediately.
+
+**Why**: Snowflake advises against creating objects with `ACCOUNTADMIN` because
+it becomes their owner. Any other role — SYSADMIN included — then gets "does
+not exist or not authorized" on objects that plainly do exist, and cannot grant
+itself access. The pipeline stops being transferable to another engineer.
+
+This was not theoretical here: the first attempt to create schemas as the new
+role failed with *"primary role INGESTION_ENGINEER must have CREATE SCHEMA
+granted on DATABASE"* — Snowflake stating the problem directly. Ownership has to
+transfer before the role creates anything inside the database.
+
+The transfer is done with `GRANT OWNERSHIP ... COPY CURRENT GRANTS` rather than
+by creating as the role, because `CREATE ... IF NOT EXISTS` is a no-op on an
+existing object and would silently leave the old owner in place. Transferring
+afterwards is correct for a fresh account and a pre-existing one alike.
+
+---
+
+## D11 · Assert the load, do not assume it
+
+**Decision**: `05_validate_bronze.sql` checks 13 invariants and raises if any
+fails.
+
+**Why**: the pipeline has a silent-failure mode. If `PUT` stages nothing — wrong
+working directory — or a `PATTERN` matches no files, every `COPY` still reports
+success and every table ends up empty. A run that loads nothing looks exactly
+like a run that loads everything.
+
+Checks cover staged file count, per-table row counts, and three invariants that
+encode bugs already found and fixed: no exporter footer surviving into a
+business key, no NULL text lines, no carriage returns. That makes them
+regression tests, not decoration — if a future change reintroduces one of those
+defects, the script says which.
+
+The raise was itself verified by forcing a FAIL and confirming the block aborts.
+An assertion never seen to fail is not known to work.
+
+---
+
+## D12 · Rejected: snapshot-before-truncate
+
+**Rejected**: cloning each bronze table before `TRUNCATE` so a failed reload
+could be recovered.
+
+**Why rejected**: the risk is real — `TRUNCATE` auto-commits, so a `COPY` that
+fails afterwards leaves bronze empty. But the recovery it protects is already
+trivial: the source files are 70 KB, committed in this repo and present in the
+stage, and a full reload takes seconds. Clone-and-swap would add tables and
+steps to explain for a recovery path cheaper to simply re-run.
+
+Worth revisiting if the source data ever grows large enough that re-staging is
+expensive. At this size it is ceremony.
+
+**Last updated**: 2026-08-10 · after PR #1 (bronze), second review round

@@ -23,6 +23,7 @@ platform:
   auth: rsa-key-pair             # ~/.snowflake/keys/ — never committed
   database: financial_ingestion
   compute: wh_ingestion          # XSMALL, auto-suspend 60s
+  role: ingestion_engineer       # owns everything; ACCOUNTADMIN only bootstraps
   schemas: [bronze, silver, gold]
 
 sources:
@@ -47,6 +48,7 @@ sources:
 layers:
   bronze:
     status: complete
+    validation: sql/01_bronze/05_validate_bronze.sql   # 13 checks, all passing
     tables:
       raw_text_lines: 1701
       raw_client_a_customers: 23
@@ -81,8 +83,10 @@ pull_requests:
   - number: 1
     title: bronze layer — raw ingestion of 15 multi-format source files
     scope: [setup, bronze]
-    review_findings: 7
-    review_confirmed: 6
+    review_rounds: 2
+    review_findings: 15
+    review_confirmed: 12
     review_false_positives: 1
+    review_rejected_as_disproportionate: 1
 
 last_updated: 2026-08-10

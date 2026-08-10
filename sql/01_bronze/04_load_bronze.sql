@@ -19,7 +19,7 @@
    correct under either upload.
    ========================================================================= */
 
-USE ROLE ACCOUNTADMIN;
+USE ROLE ingestion_engineer;
 USE WAREHOUSE wh_ingestion;
 USE DATABASE financial_ingestion;
 USE SCHEMA bronze;
@@ -59,7 +59,7 @@ FROM (
     FROM @raw_files/client_a/Customer.csv
 )
 FILE_FORMAT = (FORMAT_NAME = ff_client_csv)
-ON_ERROR    = CONTINUE
+ON_ERROR    = ABORT_STATEMENT
 FORCE       = TRUE;
 
 TRUNCATE TABLE raw_client_a_orders;
@@ -72,7 +72,7 @@ FROM (
     FROM @raw_files/client_a/Orders.csv
 )
 FILE_FORMAT = (FORMAT_NAME = ff_client_csv)
-ON_ERROR    = CONTINUE
+ON_ERROR    = ABORT_STATEMENT
 FORCE       = TRUE;
 
 TRUNCATE TABLE raw_client_a_products;
@@ -85,7 +85,7 @@ FROM (
     FROM @raw_files/client_a/Products.csv
 )
 FILE_FORMAT = (FORMAT_NAME = ff_client_csv)
-ON_ERROR    = CONTINUE
+ON_ERROR    = ABORT_STATEMENT
 FORCE       = TRUE;
 
 /* ---------------------------------------------------------------------------
@@ -101,7 +101,7 @@ FROM (
     FROM @raw_files/client_b/Customer.CSV
 )
 FILE_FORMAT = (FORMAT_NAME = ff_client_csv)
-ON_ERROR    = CONTINUE
+ON_ERROR    = ABORT_STATEMENT
 FORCE       = TRUE;
 
 TRUNCATE TABLE raw_client_b_orders;
@@ -114,7 +114,7 @@ FROM (
     FROM @raw_files/client_b/Order.csv
 )
 FILE_FORMAT = (FORMAT_NAME = ff_client_csv)
-ON_ERROR    = CONTINUE
+ON_ERROR    = ABORT_STATEMENT
 FORCE       = TRUE;
 
 TRUNCATE TABLE raw_client_b_products;
@@ -127,7 +127,7 @@ FROM (
     FROM @raw_files/client_b/Product.csv
 )
 FILE_FORMAT = (FORMAT_NAME = ff_client_csv)
-ON_ERROR    = CONTINUE
+ON_ERROR    = ABORT_STATEMENT
 FORCE       = TRUE;
 
 TRUNCATE TABLE raw_client_b_payments;
@@ -140,7 +140,7 @@ FROM (
     FROM @raw_files/client_b/Payments.csv
 )
 FILE_FORMAT = (FORMAT_NAME = ff_client_csv)
-ON_ERROR    = CONTINUE
+ON_ERROR    = ABORT_STATEMENT
 FORCE       = TRUE;
 
 /* ---------------------------------------------------------------------------

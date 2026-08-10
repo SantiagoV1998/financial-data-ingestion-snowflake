@@ -36,13 +36,31 @@ programmatic sign-in). Neither the config nor the key is in this repo, and
 `.gitignore` is set up to keep it that way — never commit either.
 
 Target: database `financial_ingestion`, warehouse `wh_ingestion`, schemas
-`bronze` / `silver` / `gold`.
+`bronze` / `silver` / `gold`, role **`ingestion_engineer`**.
+
+`ACCOUNTADMIN` appears only in `sql/00_setup/01_infrastructure.sql`, to create
+the role and warehouse, and is dropped immediately. Never create pipeline
+objects with it: it becomes their owner, and every other role — SYSADMIN
+included — then gets "does not exist or not authorized" on objects that plainly
+do exist.
 
 ## Running the pipeline
 
-Scripts are numbered and run in order. Every one is idempotent — re-running from
-scratch is the supported path, and `sql/01_bronze/02_upload_files.sql` must run
-from the repository root because its `PUT` paths are relative.
+Scripts are numbered and run in sequence. `sql/01_bronze/02_upload_files.sql`
+must run **from the repository root** — its `PUT` paths are relative, and from
+elsewhere it fails with `File doesn't exist`.
+
+Re-running is supported, with one caveat worth knowing: the *load* scripts are
+idempotent (each `TRUNCATE`s before its `COPY`), but the *DDL* scripts use
+`CREATE OR REPLACE TABLE` and are therefore destructive — re-running `03`
+empties bronze, so `04` must follow it. Since bronze is the replay source for
+silver, dropping it means a full re-stage and reload before silver can be
+rebuilt.
+
+`sql/01_bronze/05_validate_bronze.sql` asserts the load actually produced what
+it claims. Run it after any change: it raises on failure rather than passing
+quietly, because a run that loads nothing otherwise looks exactly like a run
+that loads everything.
 
 ## Conventions
 

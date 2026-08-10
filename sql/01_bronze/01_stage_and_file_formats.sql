@@ -33,7 +33,7 @@
    what makes reassembling the seven fragments possible at all.
    ========================================================================= */
 
-USE ROLE ACCOUNTADMIN;
+USE ROLE ingestion_engineer;
 USE WAREHOUSE wh_ingestion;
 USE DATABASE financial_ingestion;
 USE SCHEMA bronze;
@@ -57,6 +57,19 @@ CREATE STAGE IF NOT EXISTS raw_files
      ESCAPE_UNENCLOSED_FIELD = NONE  the default is backslash, which would
                                      silently consume backslashes in the payload
      TRIM_SPACE = FALSE              indentation is part of the document
+     EMPTY_FIELD_AS_NULL = FALSE     a blank line must arrive as '', not NULL —
+                                     the default TRUE turned all 55 blank lines
+                                     into NULL, quietly defeating the
+                                     SKIP_BLANK_LINES = FALSE two lines above
+     NULL_IF = ()                    the default ('\\N') would convert a line
+                                     whose entire content is \N into NULL
+     REPLACE_INVALID_CHARACTERS = FALSE
+                                     TRUE rewrites malformed UTF-8 to U+FFFD,
+                                     silently altering bytes at the one point
+                                     in the pipeline that must be lossless. A
+                                     substitution here would propagate through
+                                     the XML reassembly into a transaction
+                                     record; better to fail loudly
 
    RECORD_DELIMITER is left unset. All fifteen source files use CRLF endings,
    and Snowflake resolves \r\n to a single record delimiter — verified by
@@ -73,7 +86,9 @@ CREATE OR REPLACE FILE FORMAT ff_raw_text
     FIELD_OPTIONALLY_ENCLOSED_BY = NONE
     ESCAPE_UNENCLOSED_FIELD      = NONE
     TRIM_SPACE                   = FALSE
-    REPLACE_INVALID_CHARACTERS   = TRUE
+    EMPTY_FIELD_AS_NULL          = FALSE
+    NULL_IF                      = ()
+    REPLACE_INVALID_CHARACTERS   = FALSE
     COMMENT = 'One row per line, zero interpretation. For files no parser accepts.';
 
 /* ---------------------------------------------------------------------------
@@ -88,9 +103,14 @@ CREATE OR REPLACE FILE FORMAT ff_raw_text
    ("COPY statement only supports simple SELECT from stage statements"). It is
    therefore removed immediately after loading, in 04_load_bronze.sql.
 
-   ERROR_ON_COLUMN_COUNT_MISMATCH = FALSE is a data-quality decision, not
-   laziness: a short or long row must reach the quarantine table with a reason
-   attached, not abort the batch.
+   ERROR_ON_COLUMN_COUNT_MISMATCH is deliberately NOT set. Snowflake documents
+   that the option "is ignored when transforming data during loading using a
+   query", and all seven CSV loads use the transformation form
+   FROM (SELECT $1, $2, ... FROM @stage). Setting it would assert a guard that
+   does not exist. The transformation form already tolerates ragged rows on its
+   own: positions past the field count resolve to NULL, and extra fields are
+   simply not selected. One real row in the data relies on this —
+   CUST-A-0040,,,,,false carries six fields for a seven-column table.
    ------------------------------------------------------------------------ */
 CREATE OR REPLACE FILE FORMAT ff_client_csv
     TYPE                           = CSV
@@ -100,7 +120,6 @@ CREATE OR REPLACE FILE FORMAT ff_client_csv
     FIELD_OPTIONALLY_ENCLOSED_BY   = '"'
     TRIM_SPACE                     = TRUE
     EMPTY_FIELD_AS_NULL            = TRUE
-    ERROR_ON_COLUMN_COUNT_MISMATCH = FALSE
     REPLACE_INVALID_CHARACTERS     = TRUE
     COMMENT = 'Client master-data CSVs. Skips the exporter banner plus header.';
 

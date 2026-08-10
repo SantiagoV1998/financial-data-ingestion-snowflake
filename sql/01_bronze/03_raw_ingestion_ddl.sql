@@ -20,7 +20,7 @@
      loaded_at        load timestamp
    ========================================================================= */
 
-USE ROLE ACCOUNTADMIN;
+USE ROLE ingestion_engineer;
 USE WAREHOUSE wh_ingestion;
 USE DATABASE financial_ingestion;
 USE SCHEMA bronze;
