@@ -67,7 +67,7 @@ that loads everything.
 ```bash
 sqlfluff lint sql/                      # dialect snowflake, config in .sqlfluff
 shasum -a 256 -c data/CHECKSUMS.sha256  # bytes match the manifest
-diff <(git ls-files data | grep -v CHECKSUMS.sha256 | sort) \
+diff <(git -c core.quotePath=false ls-files data | grep -vx data/CHECKSUMS.sha256 | sort) \
      <(sed 's/^[0-9a-f]\{64\}  //' data/CHECKSUMS.sha256 | sort)  # manifest covers every file
 ```
 
@@ -91,9 +91,12 @@ through. Regenerate the manifest with NUL-delimited paths, since a delivered
 filename may contain spaces:
 
 ```bash
-git ls-files -z data | grep -zv 'CHECKSUMS\.sha256' | sort -z \
+git ls-files -z data | grep -zvx 'data/CHECKSUMS\.sha256' | sort -z \
   | xargs -0 shasum -a 256 > data/CHECKSUMS.sha256
 ```
+
+Then update `EXPECTED` in `.github/workflows/ci.yml` to the new digest of the
+manifest — CI pins it, so a manifest change that skips this step fails.
 
 `.sqlfluff` disables a number of rules, each with a written reason. Keep it that
 way: a linter silenced without reasons is worse than no linter, because a green
