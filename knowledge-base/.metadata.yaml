@@ -1,0 +1,88 @@
+# Machine-readable project metadata.
+# Kept in sync with knowledge-base/README.md on every PR.
+
+project:
+  name: financial-data-ingestion-snowflake
+  type: technical-exercise
+  repository: https://github.com/SantiagoV1998/financial-data-ingestion-snowflake
+  description: >
+    Multi-format financial transaction ingestion (XML, JSON, CSV) into a
+    canonical medallion model on Snowflake, using SQL only.
+
+constraints:
+  - id: sql-only
+    statement: No Python, no external ETL tooling. Every transformation is SQL.
+  - id: sources-untouched
+    statement: >
+      Source files are committed byte-identical to delivery. All repair happens
+      inside Snowflake.
+
+platform:
+  warehouse: snowflake
+  connection: nuaav              # ~/.snowflake/config.toml
+  auth: rsa-key-pair             # ~/.snowflake/keys/ — never committed
+  database: financial_ingestion
+  compute: wh_ingestion          # XSMALL, auto-suspend 60s
+  schemas: [bronze, silver, gold]
+
+sources:
+  clients:
+    - code: CLIENT_A
+      path: data/client_a
+      files: 10
+      transaction_format: xml
+      notes: >
+        Seven XML fragments with unbalanced root tags; file 4 is XML with a .txt
+        extension. Payment embedded in each transaction; no payments file.
+    - code: CLIENT_B
+      path: data/client_b
+      files: 5
+      transaction_format: json
+      notes: >
+        Folder named "Client B" but contents identify as clientC with C- id
+        prefixes. JSON contains // comments and is truncated to a sample.
+  total_files: 15
+  line_endings: crlf
+
+layers:
+  bronze:
+    status: complete
+    tables:
+      raw_text_lines: 1701
+      raw_client_a_customers: 23
+      raw_client_a_orders: 21
+      raw_client_a_products: 22
+      raw_client_b_customers: 22
+      raw_client_b_orders: 21
+      raw_client_b_products: 18
+      raw_client_b_payments: 21
+  silver:
+    status: pending
+  gold:
+    status: pending
+
+parsed_volumes:            # validated in Snowflake, not yet materialised
+  client_a_transactions:
+    total: 46
+    distinct: 40
+    duplicates: 6
+  client_b_transactions:
+    total: 11
+    distinct: 10
+    duplicates: 1
+
+workflow:
+  branching: feature/<short-description>
+  commits: conventional
+  review: /code-review on every PR before merge
+  docs_policy: knowledge-base updated in the same PR as the code it describes
+
+pull_requests:
+  - number: 1
+    title: bronze layer — raw ingestion of 15 multi-format source files
+    scope: [setup, bronze]
+    review_findings: 7
+    review_confirmed: 6
+    review_false_positives: 1
+
+last_updated: 2026-08-10

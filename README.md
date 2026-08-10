@@ -35,6 +35,8 @@ Source files (untouched) ──► @raw_files stage
 ## Layout
 
 ```
+CLAUDE.md      operating context, loaded automatically by Claude Code
+knowledge-base/  architecture, source-file anatomy, design decisions
 data/          source files exactly as received
 sql/00_setup   warehouse, database, medallion schemas
 sql/01_bronze  stage, file formats, raw DDL, COPY INTO
