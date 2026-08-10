@@ -1,0 +1,174 @@
+----- START OF FILE: clientA_transactions.xml -----
+<SalesData client="ClientA" generatedAt="2025-11-12T10:45:00Z">
+
+    <!-- TXN-1001: valid with extra field + negative quantity -->
+    <Transaction>
+        <TransactionID>TXN-1001</TransactionID>
+        <Order>
+            <OrderID>ORD-5001</OrderID>
+            <OrderDate>2025-11-10</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0001</CustomerID>
+                <Name>
+                    <FirstName>John</FirstName>
+                    <LastName>Doe</LastName>
+                </Name>
+                <Email>john.doe@example.com</Email>
+                <LoyaltyTier>GOLD</LoyaltyTier>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-001</SKU>
+                <Description>Wireless Mouse</Description>
+                <Quantity>2</Quantity>
+                <UnitPrice currency="USD">25.99</UnitPrice>
+            </Item>
+            <Item>
+                <SKU>SKU-A-002</SKU>
+                <Description>Keyboard</Description>
+                <Quantity>-1</Quantity>
+                <UnitPrice currency="USD">45.50</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>CreditCard</Method>
+            <Amount currency="USD">97.48</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1001 duplicate -->
+    <Transaction>
+        <TransactionID>TXN-1001</TransactionID>
+        <Order>
+            <OrderID>ORD-5001</OrderID>
+            <OrderDate>2025-11-10</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0001</CustomerID>
+                <Name>
+                    <FirstName>John</FirstName>
+                    <LastLastName>Doe</LastLastName>
+                </Name>
+                <Email>john.doe@example.com</Email>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-001</SKU>
+                <Description>Wireless Mouse</Description>
+                <Quantity>2</Quantity>
+                <UnitPrice currency="USD">25.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>CreditCard</Method>
+            <Amount currency="USD">97.48</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1002: invalid fields -->
+    <Transaction>
+        <TransactionID></TransactionID>
+        <Order>
+            <OrderID>ORD-5002</OrderID>
+            <OrderDate></OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0002</CustomerID>
+                <Name>
+                    <FirstName></FirstName>
+                    <LastName>Unknown</LastName>
+                </Name>
+                <Email></Email>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU></SKU>
+                <Description>Faulty Item</Description>
+                <Quantity>1</Quantity>
+                <UnitPrice currency="USD">0</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>CreditCard</Method>
+            <Amount currency="USD">0</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1003: extra nested field, positive/negative mix -->
+    <Transaction>
+        <TransactionID>TXN-1003</TransactionID>
+        <Order>
+            <OrderID>ORD-5003</OrderID>
+            <OrderDate>2025-11-11</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0003</CustomerID>
+                <Name>
+                    <FirstName>Jane</FirstName>
+                    <LastName>Smith</LastName>
+                </Name>
+                <Email>jane.smith@example.com</Email>
+                <Metadata>
+                    <SignupSource>MobileApp</SignupSource>
+                    <MarketingOptIn>true</MarketingOptIn>
+                </Metadata>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-003</SKU>
+                <Description>USB-C Charger</Description>
+                <Quantity>3</Quantity>
+                <UnitPrice currency="USD">19.99</UnitPrice>
+            </Item>
+            <Item>
+                <SKU>SKU-A-004</SKU>
+                <Description>Screen Protector</Description>
+                <Quantity>-2</Quantity>
+                <UnitPrice currency="USD">9.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>PayPal</Method>
+            <Amount currency="USD">59.97</Amount>
+            <Fees>
+                <ProcessingFee>1.50</ProcessingFee>
+            </Fees>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1004: missing email, extra unexpected field -->
+    <Transaction>
+        <TransactionID>TXN-1004</TransactionID>
+        <Order>
+            <OrderID>ORD-5004</OrderID>
+            <OrderDate>2025-11-11</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0004</CustomerID>
+                <Name>
+                    <FirstName>Robert</FirstName>
+                    <LastName>King</LastName>
+                </Name>
+                <Email></Email>
+                <Tags>
+                    <Tag>new_customer</Tag>
+                    <Tag>promo_user</Tag>
+                </Tags>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-005</SKU>
+                <Description>Gaming Headset</Description>
+                <Quantity>1</Quantity>
+                <UnitPrice currency="USD">79.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>CreditCard</Method>
+            <Amount currency="USD">79.99</Amount>
+        </Payment>
+    </Transaction>
+
+</SalesData>
+----- END OF FILE -----

@@ -1,0 +1,25 @@
+# Credentials — never commit
+*.p8
+*.pem
+*.key
+rsa_key*
+config.toml
+.env
+.env.*
+credentials*
+
+# Snowflake CLI local state
+.snowflake/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+
+# Temporary exports
+tmp/
+*.tmp

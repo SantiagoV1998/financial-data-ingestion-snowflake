@@ -1,0 +1,23 @@
+----- START OF FILE: clientC_products.csv -----
+sku,product_name,category,unit_price,currency,is_active
+
+C-SKU-001,Smartwatch,Electronics,149.99,USD,true
+C-SKU-002,Tablet Case,Accessories,19.99,USD,true
+C-SKU-003,HDMI Cable,Cables,8.99,USD,true
+C-SKU-004,USB Cable,Cables,5.99,USD,true
+C-SKU-005,Webcam,Electronics,49.99,USD,true
+C-SKU-006,Monitor,Electronics,199.99,USD,true
+C-SKU-007,Mouse Pad,Accessories,9.99,USD,true
+C-SKU-008,Portable SSD,Storage,89.99,USD,true
+C-SKU-009,Phone Stand,Accessories,14.99,USD,true
+C-SKU-010,Desk Lamp,Home Office,34.99,USD,true
+C-SKU-011,Wireless Earbuds,Audio,59.99,USD,true
+C-SKU-012,Smartwatch Band,Accessories,12.99,USD,true
+C-SKU-013,Phone Case,Accessories,14.99,USD,true
+C-SKU-014,Bluetooth Tracker,Electronics,29.99,USD,true
+C-SKU-015,Desk Organizer,Home Office,19.99,USD,true
+
+C-SKU-003,HDMI Cable,Cables,8.99,USD,true                 <-- duplicate
+C-SKU-999,Unknown Product,Unknown,0.00,USD,false          <-- anomaly
+C-SKU-011,Wireless Earbuds,Audio,-59.99,USD,true          <-- negative price
+----- END OF FILE -----

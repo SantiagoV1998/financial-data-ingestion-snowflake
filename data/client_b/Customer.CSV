@@ -1,0 +1,27 @@
+----- START OF FILE: clientC_customers.csv -----
+customer_id,customer_name,email,segment,is_active
+
+C-CUST-5001,Chris Evans,cevans@example.com,VIP,true
+C-CUST-5002,Emily Clark,eclark@example.com,REGULAR,true
+C-CUST-5003,Michael Brown,mbrown@example.com,REGULAR,true
+C-CUST-5004,Laura Hill,lhill@example.com,NEW,true
+C-CUST-5005,Tom Hardy,thardy@example.com,VIP,true
+C-CUST-5006,,noemail@,REGULAR,true                     <-- invalid email + missing name
+C-CUST-5007,Sarah Lee,slee@example.com,REGULAR,true
+C-CUST-5008,Kevin Young,kyoung@example.com,REGULAR,true
+C-CUST-5009,Amy Wong,awong@example.com,REGULAR,true
+C-CUST-5010,Unknown User,unknown@example.com,UNKNOWN,false
+C-CUST-5011,Daniel Kim,dkim@example.com,VIP,true
+C-CUST-5012,Olivia Green,ogreen@example.com,REGULAR,true
+C-CUST-5013,Henry Adams,,REGULAR,true                  <-- missing email
+C-CUST-5014,Linda Park,lpark@example.com,VIP,true
+C-CUST-5015,George Nguyen,gnguyen@example.com,REGULAR,true
+C-CUST-5016,Rachel Stone,rstone@example.com,VIP,true
+C-CUST-5017,Jason Wells,jwells@example.com,REGULAR,true
+C-CUST-5018,Marcus Reed,mreed@example.com,VIP,true
+C-CUST-5019,Elena Foster,efoster@example.com,REGULAR,true
+C-CUST-5020,Julia Chen,jchen@@example..com,REGULAR,true   <-- invalid email
+
+C-CUST-5001,Chris Evans,cevans@example.com,VIP,true        <-- duplicate
+C-CUST-5099,,,,false                                       <-- null-heavy anomaly row
+----- END OF FILE -----

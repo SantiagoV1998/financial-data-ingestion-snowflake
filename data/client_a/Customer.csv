@@ -1,0 +1,28 @@
+----- START OF FILE: clientA_customers.csv -----
+customer_id,first_name,last_name,email,loyalty_tier,signup_source,is_active
+
+CUST-A-0001,John,Doe,john.doe@example.com,GOLD,Web,true
+CUST-A-0002,Jane,Smith,jane.smith@example.com,SILVER,MobileApp,true
+CUST-A-0003,Bob,Williams,bob.williams@example.com,,Referral,true
+CUST-A-0004,,Unknown,,BRONZE,Web,false
+CUST-A-0005,Chris,Evans,cevans@example,PLATINUM,Web,true
+CUST-A-0006,Emily,Clark,eclark@example.com,SILVER,MobileApp,true
+CUST-A-0007,Michael,Brown,mbrown@example.com,GOLD,Web,true
+CUST-A-0008,Laura,Hill,lhill@example.com,,Web,true
+CUST-A-0009,Tom,Hardy,thardy@example.com,BRONZE,Referral,true
+CUST-A-0010,Sarah,Lee,slee@example.com,GOLD,Web,true
+CUST-A-0011,Kevin,Young,kyoung@example.com,,MobileApp,true
+CUST-A-0012,Amy,Wong,awong@example.com,SILVER,Web,true
+CUST-A-0013,Daniel,Kim,dkim@example.com,GOLD,Web,true
+CUST-A-0014,Olivia,Green,ogreen@example.com,BRONZE,Referral,true
+CUST-A-0015,Henry,Adams,,SILVER,Web,true
+CUST-A-0016,Linda,Park,lpark@example.com,GOLD,MobileApp,true
+CUST-A-0017,George,Nguyen,gnguyen@example.com,,Web,true
+CUST-A-0018,Rachel,Stone,rstone@example.com,PLATINUM,Web,true
+CUST-A-0019,Jason,Wells,jwells@example.com,SILVER,Referral,true
+CUST-A-0020,Marcus,Reed,mreed@example.com,GOLD,Web,true
+
+CUST-A-0001,John,Doe,john.doe@example.com,GOLD,Web,true   <-- duplicate
+CUST-A-0033,Julia,Chen,jchen@@example..com,SILVER,Web,true <-- invalid email
+CUST-A-0040,,,,,false                                      <-- null-heavy row
+----- END OF FILE -----

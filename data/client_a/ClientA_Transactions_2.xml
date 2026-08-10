@@ -1,0 +1,180 @@
+    <!-- TXN-1005: duplicate customer, negative amount -->
+    <Transaction>
+        <TransactionID>TXN-1005</TransactionID>
+        <Order>
+            <OrderID>ORD-5005</OrderID>
+            <OrderDate>2025-11-12</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0001</CustomerID>
+                <Name>
+                    <FirstName>John</FirstName>
+                    <LastName>Doe</LastName>
+                </Name>
+                <Email>john.doe@example.com</Email>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-006</SKU>
+                <Description>Portable SSD</Description>
+                <Quantity>1</Quantity>
+                <UnitPrice currency="USD">89.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>CreditCard</Method>
+            <Amount currency="USD">-89.99</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1006: missing SKU, extra nested metadata -->
+    <Transaction>
+        <TransactionID>TXN-1006</TransactionID>
+        <Order>
+            <OrderID>ORD-5006</OrderID>
+            <OrderDate>2025-11-12</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0005</CustomerID>
+                <Name>
+                    <FirstName>Emily</FirstName>
+                    <LastName>Clark</LastName>
+                </Name>
+                <Email>eclark@example.com</Email>
+                <Preferences>
+                    <Language>EN</Language>
+                    <Currency>USD</Currency>
+                </Preferences>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU></SKU>
+                <Description>Tablet Case</Description>
+                <Quantity>2</Quantity>
+                <UnitPrice currency="USD">19.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>PayPal</Method>
+            <Amount currency="USD">39.98</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1007: invalid email, extra unexpected field -->
+    <Transaction>
+        <TransactionID>TXN-1007</TransactionID>
+        <Order>
+            <OrderID>ORD-5007</OrderID>
+            <OrderDate>2025-11-12</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0006</CustomerID>
+                <Name>
+                    <FirstName>Michael</FirstName>
+                    <LastName>Brown</LastName>
+                </Name>
+                <Email>invalid-email</Email>
+                <Flags>
+                    <Flag>test_user</Flag>
+                </Flags>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-007</SKU>
+                <Description>HDMI Cable</Description>
+                <Quantity>3</Quantity>
+                <UnitPrice currency="USD">8.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>CreditCard</Method>
+            <Amount currency="USD">26.97</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1008: missing order date, negative quantity -->
+    <Transaction>
+        <TransactionID>TXN-1008</TransactionID>
+        <Order>
+            <OrderID>ORD-5008</OrderID>
+            <OrderDate></OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0007</CustomerID>
+                <Name>
+                    <FirstName>Laura</FirstName>
+                    <LastName>Hill</LastName>
+                </Name>
+                <Email>lhill@example.com</Email>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-008</SKU>
+                <Description>USB Cable</Description>
+                <Quantity>-1</Quantity>
+                <UnitPrice currency="USD">5.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>CreditCard</Method>
+            <Amount currency="USD">5.99</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1009: duplicate transaction ID -->
+    <Transaction>
+        <TransactionID>TXN-1009</TransactionID>
+        <Order>
+            <OrderID>ORD-5009</OrderID>
+            <OrderDate>2025-11-13</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0008</CustomerID>
+                <Name>
+                    <FirstName>Tom</FirstName>
+                    <LastName>Hardy</LastName>
+                </Name>
+                <Email>thardy@example.com</Email>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-009</SKU>
+                <Description>Webcam</Description>
+                <Quantity>1</Quantity>
+                <UnitPrice currency="USD">49.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>CreditCard</Method>
+            <Amount currency="USD">49.99</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1009 duplicate -->
+    <Transaction>
+        <TransactionID>TXN-1009</TransactionID>
+        <Order>
+            <OrderID>ORD-5009</OrderID>
+            <OrderDate>2025-11-13</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0008</CustomerID>
+                <Name>
+                    <FirstName>Tom</FirstName>
+                    <LastName>Hardy</LastName>
+                </Name>
+                <Email>thardy@example.com</Email>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-009</SKU>
+                <Description>Webcam</Description>
+                <Quantity>1</Quantity>
+                <UnitPrice currency="USD">49.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>CreditCard</Method>
+            <Amount currency="USD">49.99</Amount>
+        </Payment>
+    </Transaction>

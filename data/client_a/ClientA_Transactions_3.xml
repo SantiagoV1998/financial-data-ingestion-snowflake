@@ -1,0 +1,181 @@
+    <!-- TXN-1010: missing customer name, extra nested attributes -->
+    <Transaction>
+        <TransactionID>TXN-1010</TransactionID>
+        <Order>
+            <OrderID>ORD-5010</OrderID>
+            <OrderDate>2025-11-14</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0009</CustomerID>
+                <Name>
+                    <FirstName></FirstName>
+                    <LastName></LastName>
+                </Name>
+                <Email>unknown@example.com</Email>
+                <Attributes>
+                    <Attr key="source">email_campaign</Attr>
+                    <Attr key="tier">bronze</Attr>
+                </Attributes>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-010</SKU>
+                <Description>Wireless Charger</Description>
+                <Quantity>1</Quantity>
+                <UnitPrice currency="USD">29.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>PayPal</Method>
+            <Amount currency="USD">29.99</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1011: negative price, valid quantity -->
+    <Transaction>
+        <TransactionID>TXN-1011</TransactionID>
+        <Order>
+            <OrderID>ORD-5011</OrderID>
+            <OrderDate>2025-11-14</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0010</CustomerID>
+                <Name>
+                    <FirstName>Sarah</FirstName>
+                    <LastName>Lee</LastName>
+                </Name>
+                <Email>slee@example.com</Email>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-011</SKU>
+                <Description>Mouse Pad</Description>
+                <Quantity>1</Quantity>
+                <UnitPrice currency="USD">-9.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>CreditCard</Method>
+            <Amount currency="USD">-9.99</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1012: missing payment method -->
+    <Transaction>
+        <TransactionID>TXN-1012</TransactionID>
+        <Order>
+            <OrderID>ORD-5012</OrderID>
+            <OrderDate>2025-11-14</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0011</CustomerID>
+                <Name>
+                    <FirstName>Kevin</FirstName>
+                    <LastName>Young</LastName>
+                </Name>
+                <Email>kyoung@example.com</Email>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-012</SKU>
+                <Description>Bluetooth Keyboard</Description>
+                <Quantity>1</Quantity>
+                <UnitPrice currency="USD">39.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method></Method>
+            <Amount currency="USD">39.99</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1013: extra nested structure inside Items -->
+    <Transaction>
+        <TransactionID>TXN-1013</TransactionID>
+        <Order>
+            <OrderID>ORD-5013</OrderID>
+            <OrderDate>2025-11-15</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0012</CustomerID>
+                <Name>
+                    <FirstName>Amy</FirstName>
+                    <LastName>Wong</LastName>
+                </Name>
+                <Email>awong@example.com</Email>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-013</SKU>
+                <Description>Phone Stand</Description>
+                <Quantity>2</Quantity>
+                <UnitPrice currency="USD">14.99</UnitPrice>
+                <Attributes>
+                    <Color>Black</Color>
+                    <Material>Aluminum</Material>
+                </Attributes>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>CreditCard</Method>
+            <Amount currency="USD">29.98</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1014: missing TransactionID -->
+    <Transaction>
+        <TransactionID></TransactionID>
+        <Order>
+            <OrderID>ORD-5014</OrderID>
+            <OrderDate>2025-11-15</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0013</CustomerID>
+                <Name>
+                    <FirstName>Daniel</FirstName>
+                    <LastName>Kim</LastName>
+                </Name>
+                <Email>dkim@example.com</Email>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-014</SKU>
+                <Description>USB Hub</Description>
+                <Quantity>1</Quantity>
+                <UnitPrice currency="USD">24.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>PayPal</Method>
+            <Amount currency="USD">24.99</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1015: duplicate order ID, negative quantity -->
+    <Transaction>
+        <TransactionID>TXN-1015</TransactionID>
+        <Order>
+            <OrderID>ORD-5013</OrderID>
+            <OrderDate>2025-11-15</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0014</CustomerID>
+                <Name>
+                    <FirstName>Olivia</FirstName>
+                    <LastName>Green</LastName>
+                </Name>
+                <Email>ogreen@example.com</Email>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-015</SKU>
+                <Description>Desk Lamp</Description>
+                <Quantity>-2</Quantity>
+                <UnitPrice currency="USD">34.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>CreditCard</Method>
+            <Amount currency="USD">69.98</Amount>
+        </Payment>
+    </Transaction>

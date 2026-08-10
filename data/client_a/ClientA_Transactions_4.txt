@@ -1,0 +1,213 @@
+    <!-- TXN-1016: missing customer email, extra nested <Notes> -->
+    <Transaction>
+        <TransactionID>TXN-1016</TransactionID>
+        <Order>
+            <OrderID>ORD-5016</OrderID>
+            <OrderDate>2025-11-16</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0015</CustomerID>
+                <Name>
+                    <FirstName>Henry</FirstName>
+                    <LastName>Adams</LastName>
+                </Name>
+                <Email></Email>
+                <Notes>
+                    <Note>Requested gift wrap</Note>
+                </Notes>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-016</SKU>
+                <Description>Wireless Earbuds</Description>
+                <Quantity>1</Quantity>
+                <UnitPrice currency="USD">59.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>PayPal</Method>
+            <Amount currency="USD">59.99</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1017: invalid SKU, negative amount -->
+    <Transaction>
+        <TransactionID>TXN-1017</TransactionID>
+        <Order>
+            <OrderID>ORD-5017</OrderID>
+            <OrderDate>2025-11-16</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0016</CustomerID>
+                <Name>
+                    <FirstName>Linda</FirstName>
+                    <LastName>Park</LastName>
+                </Name>
+                <Email>lpark@example.com</Email>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU></SKU>
+                <Description>Portable Speaker</Description>
+                <Quantity>1</Quantity>
+                <UnitPrice currency="USD">49.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>CreditCard</Method>
+            <Amount currency="USD">-49.99</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1018: duplicate customer, extra nested <Tags> -->
+    <Transaction>
+        <TransactionID>TXN-1018</TransactionID>
+        <Order>
+            <OrderID>ORD-5018</OrderID>
+            <OrderDate>2025-11-16</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0001</CustomerID>
+                <Name>
+                    <FirstName>John</FirstName>
+                    <LastName>Doe</LastName>
+                </Name>
+                <Email>john.doe@example.com</Email>
+                <Tags>
+                    <Tag>repeat_buyer</Tag>
+                    <Tag>holiday_sale</Tag>
+                </Tags>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-017</SKU>
+                <Description>Smartwatch Band</Description>
+                <Quantity>2</Quantity>
+                <UnitPrice currency="USD">12.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>CreditCard</Method>
+            <Amount currency="USD">25.98</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1019: missing order date, negative quantity -->
+    <Transaction>
+        <TransactionID>TXN-1019</TransactionID>
+        <Order>
+            <OrderID>ORD-5019</OrderID>
+            <OrderDate></OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0017</CustomerID>
+                <Name>
+                    <FirstName>George</FirstName>
+                    <LastName>Nguyen</LastName>
+                </Name>
+                <Email>gnguyen@example.com</Email>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-018</SKU>
+                <Description>Phone Case</Description>
+                <Quantity>-3</Quantity>
+                <UnitPrice currency="USD">14.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>PayPal</Method>
+            <Amount currency="USD">44.97</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1020: extra nested <Warranty> -->
+    <Transaction>
+        <TransactionID>TXN-1020</TransactionID>
+        <Order>
+            <OrderID>ORD-5020</OrderID>
+            <OrderDate>2025-11-17</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0018</CustomerID>
+                <Name>
+                    <FirstName>Rachel</FirstName>
+                    <LastName>Stone</LastName>
+                </Name>
+                <Email>rstone@example.com</Email>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-019</SKU>
+                <Description>Bluetooth Tracker</Description>
+                <Quantity>1</Quantity>
+                <UnitPrice currency="USD">29.99</UnitPrice>
+                <Warranty>
+                    <Duration>12 months</Duration>
+                    <Coverage>Standard</Coverage>
+                </Warranty>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>CreditCard</Method>
+            <Amount currency="USD">29.99</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1021: duplicate transaction ID -->
+    <Transaction>
+        <TransactionID>TXN-1021</TransactionID>
+        <Order>
+            <OrderID>ORD-5021</OrderID>
+            <OrderDate>2025-11-17</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0019</CustomerID>
+                <Name>
+                    <FirstName>Jason</FirstName>
+                    <LastName>Wells</LastName>
+                </Name>
+                <Email>jwells@example.com</Email>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-020</SKU>
+                <Description>Desk Organizer</Description>
+                <Quantity>1</Quantity>
+                <UnitPrice currency="USD">19.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>PayPal</Method>
+            <Amount currency="USD">19.99</Amount>
+        </Payment>
+    </Transaction>
+
+    <!-- TXN-1021 duplicate -->
+    <Transaction>
+        <TransactionID>TXN-1021</TransactionID>
+        <Order>
+            <OrderID>ORD-5021</OrderID>
+            <OrderDate>2025-11-17</OrderDate>
+            <Customer>
+                <CustomerID>CUST-A-0019</CustomerID>
+                <Name>
+                    <FirstName>Jason</FirstName>
+                    <LastName>Wells</LastName>
+                </Name>
+                <Email>jwells@example.com</Email>
+            </Customer>
+        </Order>
+        <Items>
+            <Item>
+                <SKU>SKU-A-020</SKU>
+                <Description>Desk Organizer</Description>
+                <Quantity>1</Quantity>
+                <UnitPrice currency="USD">19.99</UnitPrice>
+            </Item>
+        </Items>
+        <Payment>
+            <Method>PayPal</Method>
+            <Amount currency="USD">19.99</Amount>
+        </Payment>
+    </Transaction>

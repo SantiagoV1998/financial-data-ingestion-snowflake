@@ -1,0 +1,287 @@
+----- START OF FILE: clientC_transactions.json -----
+{
+  "client": "ClientC",
+  "batchTimestamp": "2025-11-20T12:00:00Z",
+  "transactions": [
+
+    {
+      "id": "C-TXN-3001",
+      "order": {
+        "id": "C-ORD-9001",
+        "date": "2025-11-08",
+        "customer": {
+          "id": "C-CUST-5001",
+          "name": "Chris Evans",
+          "email": "cevans@example.com"
+        }
+      },
+      "items": [
+        {
+          "sku": "C-SKU-001",
+          "description": "Smartwatch",
+          "qty": 1,
+          "price": { "amount": 149.99, "currency": "USD" }
+        }
+      ],
+      "payment": {
+        "method": "CreditCard",
+        "total": 149.99
+      }
+    },
+
+    {
+      "id": "C-TXN-3001",   // duplicate
+      "order": {
+        "id": "C-ORD-9001",
+        "date": "2025-11-08",
+        "customer": {
+          "id": "C-CUST-5001",
+          "name": "Chris Evans",
+          "email": "cevans@example.com"
+        }
+      },
+      "items": [],
+      "payment": {
+        "method": "CreditCard",
+        "total": 149.99
+      }
+    },
+
+    {
+      "id": "C-TXN-3002",
+      "order": {
+        "id": "C-ORD-9002",
+        "date": "2025-11-09",
+        "customer": {
+          "id": "C-CUST-5002",
+          "name": "Emily Clark",
+          "email": "eclark@example.com"
+        }
+      },
+      "items": [
+        {
+          "sku": "C-SKU-002",
+          "description": "Tablet Case",
+          "qty": 2,
+          "price": { "amount": 19.99, "currency": "USD" }
+        }
+      ],
+      "payment": {
+        "method": "PayPal",
+        "total": 39.98
+      }
+    },
+
+    {
+      "id": "C-TXN-3003",
+      "order": {
+        "id": "C-ORD-9003",
+        "date": "2025-11-10",
+        "customer": {
+          "id": "C-CUST-5003",
+          "name": "Michael Brown",
+          "email": "mbrown@example.com"
+        }
+      },
+      "items": [
+        {
+          "sku": "C-SKU-003",
+          "description": "HDMI Cable",
+          "qty": -3,   // negative quantity
+          "price": { "amount": 8.99, "currency": "USD" }
+        }
+      ],
+      "payment": {
+        "method": "CreditCard",
+        "total": 26.97
+      }
+    },
+
+    {
+      "id": "C-TXN-3004",
+      "order": {
+        "id": "C-ORD-9004",
+        "date": null,   // missing date
+        "customer": {
+          "id": "C-CUST-5004",
+          "name": "Laura Hill",
+          "email": "lhill@example.com"
+        }
+      },
+      "items": [
+        {
+          "sku": "C-SKU-004",
+          "description": "USB Cable",
+          "qty": 1,
+          "price": { "amount": 5.99, "currency": "USD" }
+        }
+      ],
+      "payment": {
+        "method": "CreditCard",
+        "total": 5.99
+      }
+    },
+
+    {
+      "id": "C-TXN-3005",
+      "order": {
+        "id": null,   // missing order ID
+        "date": "2025-11-12",
+        "customer": {
+          "id": "C-CUST-5005",
+          "name": "Tom Hardy",
+          "email": "thardy@example.com"
+        }
+      },
+      "items": [
+        {
+          "sku": "C-SKU-005",
+          "description": "Webcam",
+          "qty": 1,
+          "price": { "amount": 49.99, "currency": "USD" }
+        }
+      ],
+      "payment": {
+        "method": "CreditCard",
+        "total": 49.99
+      }
+    },
+
+    {
+      "id": "C-TXN-3006",
+      "order": {
+        "id": "C-ORD-9006",
+        "date": "2025-11-13",
+        "customer": {
+          "id": "C-CUST-5006",
+          "name": "",
+          "email": "noemail@"   // invalid email
+        }
+      },
+      "items": [
+        {
+          "sku": "C-SKU-006",
+          "description": "Monitor",
+          "qty": 1,
+          "price": { "amount": 199.99, "currency": "USD" }
+        }
+      ],
+      "payment": {
+        "method": "CreditCard",
+        "total": 199.99
+      }
+    },
+
+    {
+      "id": "C-TXN-3007",
+      "order": {
+        "id": "C-ORD-9007",
+        "date": "2025-11-14",
+        "customer": {
+          "id": "C-CUST-5007",
+          "name": "Sarah Lee",
+          "email": "slee@example.com"
+        }
+      },
+      "items": [
+        {
+          "sku": "C-SKU-007",
+          "description": "Mouse Pad",
+          "qty": 0,
+          "price": { "amount": 9.99, "currency": "USD" }
+        }
+      ],
+      "payment": {
+        "method": "CreditCard",
+        "total": 0.00
+      }
+    },
+
+    {
+      "id": "C-TXN-3008",
+      "order": {
+        "id": "C-ORD-9008",
+        "date": "2025-11-15",
+        "customer": {
+          "id": "C-CUST-9999",   // invalid customer
+          "name": "Unknown User",
+          "email": "unknown@example.com"
+        }
+      },
+      "items": [
+        {
+          "sku": "C-SKU-999",
+          "description": "Unknown Product",
+          "qty": 1,
+          "price": { "amount": 0.00, "currency": "USD" }
+        }
+      ],
+      "payment": {
+        "method": "PayPal",
+        "total": 0.00
+      }
+    },
+
+    {
+      "id": "C-TXN-3009",
+      "order": {
+        "id": "C-ORD-9009",
+        "date": "2025-11-16",
+        "customer": {
+          "id": "C-CUST-5008",
+          "name": "Kevin Young",
+          "email": "kyoung@example.com"
+        }
+      },
+      "items": [
+        {
+          "sku": "C-SKU-008",
+          "description": "Portable SSD",
+          "qty": 1,
+          "price": { "amount": 89.99, "currency": "USD" }
+        }
+      ],
+      "payment": {
+        "method": "CreditCard",
+        "total": 89.99
+      }
+    },
+
+    {
+      "id": "C-TXN-3010",
+      "order": {
+        "id": "C-ORD-9010",
+        "date": "2025-11-16",
+        "customer": {
+          "id": "C-CUST-5009",
+          "name": "Amy Wong",
+          "email": "awong@example.com"
+        }
+      },
+      "items": [
+        {
+          "sku": "C-SKU-009",
+          "description": "Phone Stand",
+          "qty": 2,
+          "price": { "amount": 14.99, "currency": "USD" }
+        }
+      ],
+      "payment": {
+        "method": "PayPal",
+        "total": 29.98
+      }
+    }
+
+    // Continue pattern up to C-TXN-3120:
+    // - 100 valid records
+    // - 20–30 anomaly records
+    // - duplicates of id
+    // - missing fields
+    // - negative qty or price
+    // - invalid emails
+    // - extra nested fields like "metadata", "tags", "shipping"
+    // - inconsistent nesting across records
+
+  ]
+}
+----- END OF FILE -----
