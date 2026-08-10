@@ -254,4 +254,26 @@ nothing in the validation can detect a substitution after the fact. A Latin-1
 handling of the same class of corruption within the same layer is not a
 defensible contract.
 
-**Last updated**: 2026-08-10 · after PR #1 (bronze), fourth review round
+---
+
+## D16 · Branch protection is part of the integrity control
+
+**Decision**: `main` is protected — direct pushes and force-pushes rejected,
+both CI checks required, `enforce_admins` on. The repository is public, which is
+what makes protection available (GitHub gates it behind public or Pro).
+
+**Why**: the source-integrity gate allows one exception — a genuine re-delivery,
+recognised by the pinned digest changing alongside the data. That exception is
+justified by "it lands in a diff a reviewer reads". On a direct push to `main`
+there is no reviewer, and anyone tampering has to update the pin anyway to get
+past step 0 — so the exception would concede itself.
+
+No amount of workflow logic fixes that; it is a property of who can write to the
+branch. Three earlier attempts tried to solve it inside the workflow (a label, a
+documented convention, a workflow-diff check) and each introduced its own defect.
+
+**Verified**: a direct push to `main` is rejected with
+`GH006: Protected branch update failed ... 2 of 2 required status checks are
+expected`.
+
+**Last updated**: 2026-08-10 · after PR #1 (bronze), sixth review round

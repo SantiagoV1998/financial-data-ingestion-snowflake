@@ -131,6 +131,13 @@ FROM cleaned_lines;
 
 ---
 
+## Repository protections
+
+`main` is protected: no direct pushes, no force-pushes, both CI checks required,
+enforced for admins too. This is load-bearing rather than hygiene — the
+source-integrity gate's one exception assumes a reviewer sees the diff, which is
+only true when changes must arrive through a PR. See D16.
+
 ## Working agreement
 
 - `/code-review` runs on every PR. Findings are discussed, agreed, applied, and
@@ -141,4 +148,4 @@ FROM cleaned_lines;
   Claims about data are cheap to check and expensive to get wrong.
 - Documentation is updated in the same PR as the code it describes.
 
-**Last updated**: 2026-08-10 · after PR #1 (bronze), fourth review round
+**Last updated**: 2026-08-10 · after PR #1 (bronze), sixth review round

@@ -198,6 +198,15 @@ jobs:
 
           # data/ changed. Allowed only when the pinned digest changed with it.
           #
+          # This exception is safe only because main is a protected branch:
+          # direct pushes and force-pushes are rejected (GH006) and both checks
+          # are required, with enforce_admins on. Without that, the exception
+          # would concede itself — a tamperer has to update EXPECTED anyway to
+          # satisfy step 0, and on a direct push there is no reviewer for the
+          # diff this exception assumes will be read. The protection is part of
+          # the control, not an optional extra; see knowledge-base/DECISIONS.md
+          # D16.
+          #
           # Keyed on the EXPECTED line specifically, not on "ci.yml changed at
           # all". The looser check coupled the exception to an unrelated edit —
           # bumping the SQLFluff version in the same PR would have waved a data
