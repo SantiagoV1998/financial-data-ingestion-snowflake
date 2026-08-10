@@ -16,9 +16,9 @@ semi-structured readers:
 
 | File | Why the native parser rejects it |
 |---|---|
-| `ClientA_Transactions_1..7` | Fragments of a single XML document — only file 1 opens the root, only file 7 closes it. Files 2–6 are bare `<Transaction>` siblings. File 4 carries a `.txt` extension while containing XML. |
+| `ClientA_Transactions_1..7` | Fragments of a single XML document, unevenly split. File 1 opens `<SalesData>` **and closes it**; file 7 closes it **again** without opening it; files 2–6 carry neither tag. One opening tag against two closing ones, so plain concatenation yields a premature close mid-document and a duplicate close at the end. File 4 also carries a `.txt` extension while containing XML. |
 | `Client B/transactions.json` | Contains `//` comments, which are not legal JSON. |
-| All 15 files | Open with a banner line `----- START OF FILE: … -----`. |
+| Exporter artefacts | Nine of the fifteen files open with `----- START OF FILE: … -----`; every CSV also ends with `----- END OF FILE -----`. `SKIP_HEADER` handles the banner, but there is no `SKIP_FOOTER`, and `COPY INTO` rejects a `WHERE` clause — so the footer loads as a phantom row unless removed explicitly. |
 
 Repairing them in SQL, inside Snowflake, is the exercise.
 
@@ -35,6 +35,8 @@ Source files (untouched) ──► @raw_files stage
 ## Layout
 
 ```
+CLAUDE.md      operating context, loaded automatically by Claude Code
+knowledge-base/  architecture, source-file anatomy, design decisions
 data/          source files exactly as received
 sql/00_setup   warehouse, database, medallion schemas
 sql/01_bronze  stage, file formats, raw DDL, COPY INTO
@@ -42,15 +44,24 @@ sql/02_silver  XML/JSON parsing, dedup, data-quality rules
 sql/03_gold    canonical DDL and transformations
 sql/04_analysis  validation and reporting queries
 dashboard/     results dashboard
-docs/          data model and anomaly-handling notes
 ```
 
 ## Reproducing
 
 Requires a Snowflake account and the [Snowflake CLI](https://docs.snowflake.com/en/developer-guide/snowflake-cli/index).
-Scripts run in numeric order and are idempotent.
+Scripts run in numeric order, **from the repository root** — the upload step
+uses relative `PUT` paths.
 
 ```bash
 snow sql -c <connection> -f sql/00_setup/01_infrastructure.sql
-# ... then each numbered script in sequence
+snow sql -c <connection> -f sql/01_bronze/01_stage_and_file_formats.sql
+snow sql -c <connection> -f sql/01_bronze/02_upload_files.sql
+snow sql -c <connection> -f sql/01_bronze/03_raw_ingestion_ddl.sql
+snow sql -c <connection> -f sql/01_bronze/04_load_bronze.sql
+snow sql -c <connection> -f sql/01_bronze/05_validate_bronze.sql   # must print 14 PASS
 ```
+
+The **load** scripts are idempotent — each truncates before copying, and the
+upload clears the stage first, so re-running is safe. The **DDL** scripts use
+`CREATE OR REPLACE TABLE` and are destructive: re-running `03` empties bronze,
+so `04` and `05` must follow it.
