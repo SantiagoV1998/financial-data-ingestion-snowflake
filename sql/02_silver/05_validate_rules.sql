@@ -83,7 +83,7 @@ FROM   stg_client_b_payments WHERE source_annotation IS NOT NULL;
 SELECT entity, source_annotation, COUNT(*) AS records
 FROM   v_master_annotations
 GROUP  BY entity, source_annotation
-ORDER  BY records DESC, entity;
+ORDER  BY records DESC, entity ASC;
 
 /* ---------------------------------------------------------------------------
    Which rule each label should have triggered

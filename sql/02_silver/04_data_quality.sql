@@ -269,7 +269,8 @@ WHERE  t.order_id IS NOT NULL
    Line-item rules
    ------------------------------------------------------------------------ */
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, document_position, line_number, rule_code, rule_detail, severity, raw_payload)
+    (source_system, entity, natural_key, document_position, line_number,
+     rule_code, rule_detail, severity, raw_payload)
 SELECT source_system, 'transaction_item', transaction_id, document_position, line_number,
        'MISSING_SKU', 'Line has no SKU, so it cannot be matched to a product',
        'REJECT', raw_payload
@@ -277,7 +278,8 @@ FROM v_all_transaction_items
 WHERE raw_payload IS NOT NULL AND sku IS NULL;
 
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, document_position, line_number, rule_code, rule_detail, severity, raw_payload)
+    (source_system, entity, natural_key, document_position, line_number,
+     rule_code, rule_detail, severity, raw_payload)
 SELECT source_system, 'transaction_item', transaction_id, document_position, line_number,
        'MISSING_QUANTITY',
        'Quantity absent or unparseable: ' || COALESCE(quantity_raw, '(absent)'),
@@ -286,7 +288,8 @@ FROM v_all_transaction_items
 WHERE raw_payload IS NOT NULL AND quantity IS NULL;
 
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, document_position, line_number, rule_code, rule_detail, severity, raw_payload)
+    (source_system, entity, natural_key, document_position, line_number,
+     rule_code, rule_detail, severity, raw_payload)
 SELECT source_system, 'transaction_item', transaction_id, document_position, line_number,
        'MISSING_DESCRIPTION', 'Line has no description', 'WARN', raw_payload
 FROM v_all_transaction_items
@@ -294,7 +297,8 @@ WHERE raw_payload IS NOT NULL AND description IS NULL;
 
 -- Negative quantity: a return line, or corruption. The client decides.
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, document_position, line_number, rule_code, rule_detail, severity, raw_payload)
+    (source_system, entity, natural_key, document_position, line_number,
+     rule_code, rule_detail, severity, raw_payload)
 SELECT source_system, 'transaction_item', transaction_id, document_position, line_number,
        'NEGATIVE_QUANTITY',
        'Quantity is ' || quantity || ' — may be a return line',
@@ -303,7 +307,8 @@ FROM v_all_transaction_items WHERE quantity < 0;
 
 -- A negative unit price has no comparable reading. Prices are not signed.
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, document_position, line_number, rule_code, rule_detail, severity, raw_payload)
+    (source_system, entity, natural_key, document_position, line_number,
+     rule_code, rule_detail, severity, raw_payload)
 SELECT source_system, 'transaction_item', transaction_id, document_position, line_number,
        'NEGATIVE_UNIT_PRICE',
        'Unit price is ' || unit_price || ', which no reading makes valid',
@@ -311,7 +316,8 @@ SELECT source_system, 'transaction_item', transaction_id, document_position, lin
 FROM v_all_transaction_items WHERE unit_price < 0;
 
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, document_position, line_number, rule_code, rule_detail, severity, raw_payload)
+    (source_system, entity, natural_key, document_position, line_number,
+     rule_code, rule_detail, severity, raw_payload)
 -- NOT EXISTS for the same reason as ORPHAN_CUSTOMER above: the product master
 -- also carries duplicates, and a join would multiply the findings.
 SELECT i.source_system, 'transaction_item', i.transaction_id, i.document_position, i.line_number,
