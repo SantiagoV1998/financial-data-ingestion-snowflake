@@ -138,7 +138,7 @@ SELECT
     MD5(i.source_system || '|' || i.transaction_id || '|' || i.line_number),
     i.source_system,
     MD5(i.source_system || '|' || i.transaction_id)                  AS transaction_key,
-    MD5(t.source_system || '|' || t.order_id)                        AS order_key,
+    o.order_key,
     p.product_key,
     i.sku,
     i.line_number,
@@ -154,7 +154,11 @@ LEFT JOIN t
       AND i.transaction_id = t.transaction_id
 LEFT JOIN dim_product AS p
        ON i.source_system = p.source_system
-      AND i.sku           = p.sku;
+      AND i.sku           = p.sku
+-- NULL when the order has no master record, as customer_key already is.
+LEFT JOIN fact_order AS o
+       ON i.source_system = o.source_system
+      AND t.order_id      = o.order_id;
 
 /* ---------------------------------------------------------------------------
    fact_transaction
@@ -180,13 +184,21 @@ SELECT
     MD5(t.source_system || '|' || t.transaction_id),
     t.source_system,
     t.transaction_id,
-    MD5(t.source_system || '|' || t.order_id)                        AS order_key,
+    -- NULL when the order has no master record, exactly as customer_key is.
+    -- Deriving the key from the id regardless produced 19 transactions pointing
+    -- at fact_order rows that were never created — a foreign key referencing
+    -- nothing, invisible to the validation gate because no check looked.
+    o.order_key,
     c.customer_key,
     t.order_date                                                     AS transaction_date,
     COALESCE(li.line_count, 0)                                       AS line_count,
-    li.gross_line_amount,
+    -- COALESCE to zero, not NULL. When every line of a transaction was REJECTed
+    -- the join to li misses, and a NULL variance excluded exactly the worst
+    -- reconciliation cases — 100% of the payment unaccounted for — from both the
+    -- variance count and its total. The failure hid itself.
+    COALESCE(li.gross_line_amount, 0)                                AS gross_line_amount,
     t.payment_amount,
-    ROUND(t.payment_amount - li.gross_line_amount, 2)                AS amount_variance,
+    ROUND(t.payment_amount - COALESCE(li.gross_line_amount, 0), 2)   AS amount_variance,
     COALESCE(t.payment_currency, li.currency)                        AS currency,
     EXISTS(SELECT 1 FROM silver.dq_quarantine AS q
             WHERE q.source_system = t.source_system
@@ -197,7 +209,10 @@ LEFT JOIN li
        ON li.transaction_key = MD5(t.source_system || '|' || t.transaction_id)
 LEFT JOIN dim_customer AS c
        ON t.source_system = c.source_system
-      AND t.customer_id   = c.customer_id;
+      AND t.customer_id   = c.customer_id
+LEFT JOIN fact_order AS o
+       ON t.source_system = o.source_system
+      AND t.order_id      = o.order_id;
 
 /* ---------------------------------------------------------------------------
    fact_payment

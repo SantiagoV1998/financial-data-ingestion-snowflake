@@ -95,7 +95,11 @@ SELECT
     t.document_position,
     t.source_system,
     NULLIF(TRIM(XMLGET(t.transaction_xml, 'TransactionID'):"$"::VARCHAR), '') AS transaction_id,
-    i.index + 1                                                              AS line_number,
+    -- Numbered AFTER the element filter below, not from the array index. An XML
+    -- comment inside <Items> — the device this provider uses everywhere — would
+    -- otherwise shift every later line number and leave a gap, and line_number
+    -- is a join key in deduplication and a component of order_item_key.
+    ROW_NUMBER() OVER (PARTITION BY t.document_position ORDER BY i.index)     AS line_number,
 
     NULLIF(TRIM(XMLGET(i.value, 'SKU'):"$"::VARCHAR), '')                    AS sku,
     NULLIF(TRIM(XMLGET(i.value, 'Description'):"$"::VARCHAR), '')            AS description,

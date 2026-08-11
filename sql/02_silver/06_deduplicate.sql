@@ -29,16 +29,19 @@ USE SCHEMA silver;
 /* ---------------------------------------------------------------------------
    Transactions
    ------------------------------------------------------------------------ */
+-- The REJECT match is POSITION-AWARE. Matching on transaction_id alone would
+-- drop every copy of a duplicated id when only one of them is defective: a
+-- transaction whose second copy has an empty <OrderID> would vanish from gold
+-- entirely, taking its clean first copy with it.
 CREATE OR REPLACE TABLE transactions_clean AS
 SELECT *
 FROM   v_all_transactions AS t
 WHERE  NOT EXISTS (
          SELECT 1 FROM dq_quarantine AS q
-         WHERE q.entity        = 'transaction'
-           AND q.severity      = 'REJECT'
-           AND q.source_system = t.source_system
-           AND (q.natural_key  = t.transaction_id
-                OR (q.natural_key IS NULL AND t.transaction_id IS NULL))
+         WHERE q.entity            = 'transaction'
+           AND q.severity          = 'REJECT'
+           AND q.source_system     = t.source_system
+           AND q.document_position = t.document_position
        )
 QUALIFY ROW_NUMBER() OVER (
           PARTITION BY source_system, transaction_id
@@ -56,17 +59,27 @@ QUALIFY ROW_NUMBER() OVER (
 CREATE OR REPLACE TABLE transaction_items_clean AS
 SELECT i.*
 FROM   v_all_transaction_items AS i
+-- The join carries document_position, and that is load-bearing.
+--
+-- Joining on transaction_id alone let lines from a DISCARDED copy attach to the
+-- surviving one. TXN-1001 is delivered twice: copy 1 has two items, copy 2 has
+-- one. Deduplication keeps copy 2, but line 2 existed only in copy 1 and had no
+-- competitor to lose to — so it survived, and gold reported a transaction whose
+-- lines summed to 6.48 against a stated payment of 97.48. A 91.00 variance
+-- invented entirely by the join, in the column whose whole purpose is measuring
+-- whether a payment agrees with its own lines.
 INNER JOIN   transactions_clean AS t
-  ON   i.source_system  = t.source_system
- AND   i.transaction_id = t.transaction_id
+  ON   i.source_system     = t.source_system
+ AND   i.transaction_id    = t.transaction_id
+ AND   i.document_position = t.document_position
 WHERE  i.raw_payload IS NOT NULL
   AND  NOT EXISTS (
          SELECT 1 FROM dq_quarantine AS q
-         WHERE q.entity        = 'transaction_item'
-           AND q.severity      = 'REJECT'
-           AND q.source_system = i.source_system
-           AND q.natural_key   = i.transaction_id
-           AND q.line_number   = i.line_number
+         WHERE q.entity            = 'transaction_item'
+           AND q.severity          = 'REJECT'
+           AND q.source_system     = i.source_system
+           AND q.document_position = i.document_position
+           AND q.line_number       = i.line_number
        )
 -- Qualified: source_system exists on both sides of the join, and an
 -- unqualified reference here is a compilation error. This is precisely what

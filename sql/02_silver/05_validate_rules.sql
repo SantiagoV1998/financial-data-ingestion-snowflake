@@ -50,6 +50,42 @@ FROM   xml_comments
 WHERE  transaction_id IS NOT NULL;
 
 /* ---------------------------------------------------------------------------
+   The CSV side of the same ground truth
+   ----------------------------------------------------------------------------
+   The 28 inline annotations extracted in 03_extract_master_data.sql belong to
+   master records, not to transactions, so they cannot be matched against
+   transaction-level rules. They are surfaced here as their own report: the
+   provider's account of what is wrong with the master data, beside what the
+   pipeline found in it.
+   ------------------------------------------------------------------------ */
+CREATE OR REPLACE VIEW v_master_annotations AS
+SELECT 'customers' AS entity, source_system, customer_id AS natural_key, source_annotation
+FROM   stg_client_a_customers WHERE source_annotation IS NOT NULL
+UNION ALL
+SELECT 'customers', source_system, customer_id, source_annotation
+FROM   stg_client_b_customers WHERE source_annotation IS NOT NULL
+UNION ALL
+SELECT 'orders', source_system, order_id, source_annotation
+FROM   stg_client_a_orders WHERE source_annotation IS NOT NULL
+UNION ALL
+SELECT 'orders', source_system, order_id, source_annotation
+FROM   stg_client_b_orders WHERE source_annotation IS NOT NULL
+UNION ALL
+SELECT 'products', source_system, sku, source_annotation
+FROM   stg_client_a_products WHERE source_annotation IS NOT NULL
+UNION ALL
+SELECT 'products', source_system, sku, source_annotation
+FROM   stg_client_b_products WHERE source_annotation IS NOT NULL
+UNION ALL
+SELECT 'payments', source_system, payment_id, source_annotation
+FROM   stg_client_b_payments WHERE source_annotation IS NOT NULL;
+
+SELECT entity, source_annotation, COUNT(*) AS records
+FROM   v_master_annotations
+GROUP  BY entity, source_annotation
+ORDER  BY records DESC, entity;
+
+/* ---------------------------------------------------------------------------
    Which rule each label should have triggered
    ----------------------------------------------------------------------------
    Deliberately literal and ordered most-specific-first. An earlier version
@@ -120,8 +156,14 @@ LATERAL (
     WHERE CONTAINS(g.label, m.phrase)
       -- "duplicate customer" also contains "duplicate"; the specific reading wins.
       -- Specific readings win: "duplicate customer" contains "duplicate" too.
-      AND NOT (m.phrase IN ('duplicate', 'duplicate transaction id')
-               AND (CONTAINS(g.label, 'duplicate customer') OR CONTAINS(g.label, 'duplicate order id')))
+      -- Only the bare word is demoted. Suppressing the explicit
+      -- "duplicate transaction id" phrase too would silently drop a legitimate
+      -- expectation from a label naming several duplicate kinds at once, and
+      -- understate the coverage denominator this file reports.
+      AND NOT (m.phrase = 'duplicate'
+               AND (CONTAINS(g.label, 'duplicate customer')
+                    OR CONTAINS(g.label, 'duplicate order id')
+                    OR CONTAINS(g.label, 'duplicate transaction id')))
       AND NOT (m.phrase = 'duplicate' AND CONTAINS(g.label, 'duplicate transaction id'))
 ) AS e;
 

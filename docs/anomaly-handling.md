@@ -42,7 +42,7 @@ set, and the client decides.
 
 ## The rules
 
-**13 REJECT findings · 95 WARN findings · 108 total**
+**13 REJECT findings · 118 WARN findings · 131 total**
 
 ### Transaction level
 
@@ -55,6 +55,7 @@ set, and the client decides.
 | `DUPLICATE_ORDER_ID` | WARN | 4 | Same order under several transaction ids — a business problem, reported separately |
 | `DUPLICATE_CUSTOMER` | WARN | 8 | Customer master repeats an id, so any join against it multiplies |
 | `ORPHAN_CUSTOMER` | WARN | 18 | Transaction references a customer with no master record |
+| `ORPHAN_ORDER` | WARN | 23 | Transaction references an order the master file never delivered |
 | `MISSING_ORDER_DATE` | WARN | 5 | Loads; date is NULL and the raw text is retained |
 | `MISSING_CUSTOMER_NAME` | WARN | 3 | |
 | `MISSING_EMAIL` | WARN | 4 | |
@@ -140,8 +141,11 @@ six fields for seven columns, so its annotation ends up in `signup_source`. Ever
 text field is cleaned, not just the last.
 
 28 annotations across the seven CSVs, stripped from the values and **retained** in
-a `source_annotation` column — which is what makes the ground-truth comparison
-above possible for the CSV side too.
+a `source_annotation` column. They belong to master records rather than to
+transactions, so they cannot be matched against transaction-level rules the way
+the XML comments are; `silver.v_master_annotations` surfaces them as their own
+report — the provider's account of what is wrong with the master data, beside
+what the pipeline found in it.
 
 ---
 
@@ -217,9 +221,40 @@ was paid and what its own line items add up to.
 
 | Client | Transactions | Payment ≠ lines | Total absolute variance |
 |---|---|---|---|
-| Client A | 37 | 9 | 694.76 |
-| Client B | 9 | 1 | 53.94 |
+| Client A | 37 | 16 | 872.18 |
+| Client B | 9 | 2 | 203.93 |
 
 It is **measured and left visible, never corrected**. Correcting it would erase
 the finding — and reconciling a payment against its own lines is precisely what a
 canonical model over multi-client financial data exists to make possible.
+
+---
+
+## Two defects found by review, after the figures had already been published
+
+Both produced **wrong numbers without failing**, which is the class of error this
+document exists to argue against, so they are recorded rather than quietly fixed.
+
+**Line items leaked between copies of a duplicated transaction.** Deduplication
+keeps one copy per transaction id, but the item table joined back on the id alone.
+A line that existed only in a *discarded* copy had no competitor to lose to, so it
+survived and attached itself to the surviving one. `TXN-1001` is delivered twice —
+two items in the first copy, one in the second — and gold reported a transaction
+whose lines summed to 6.48 against a stated payment of 97.48: **a variance of
+91.00 invented entirely by the join**, in the column whose only purpose is
+measuring whether a payment agrees with its own lines.
+
+The fix carries `document_position` through the join, and the same correction
+applies in the other direction: a REJECT on one copy was removing every copy,
+including clean ones.
+
+**`order_key` was derived from the order id unconditionally.** 19 transactions and
+15 line items carried foreign keys pointing at `fact_order` rows that were never
+created, because 19 of Client A's order ids are never delivered in `Orders.csv`.
+Nothing detected it: there was no `ORPHAN_ORDER` rule and no
+`fact_transaction_order_resolves` check — while the validation script's own header
+said "what must never happen is a key that points at nothing".
+
+Both are now asserted. The canonical validation went from 20 invariants to 24, and
+the corrected variance figures are the ones in the table above — the earlier
+694.76 was inflated by the phantom lines.

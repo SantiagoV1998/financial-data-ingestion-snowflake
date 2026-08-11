@@ -143,15 +143,20 @@
       <td class="num">7</td>
       <td class="track"><span class="bar" style="width:77.78%;background:var(--status-good)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0">
+      <th scope="row"><code>NEGATIVE_PAYMENT_AMOUNT</code></th>
+      <td class="num">4</td>
+      <td class="num">4</td>
+      <td class="track"><span class="bar" style="width:44.44%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
       <th scope="row"><code>DUPLICATE_CUSTOMER</code></th>
       <td class="num">4</td>
       <td class="num">4</td>
       <td class="track"><span class="bar" style="width:44.44%;background:var(--status-good)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0">
-      <th scope="row"><code>NEGATIVE_PAYMENT_AMOUNT</code></th>
-      <td class="num">4</td>
-      <td class="num">4</td>
-      <td class="track"><span class="bar" style="width:44.44%;background:var(--status-good)" aria-hidden="true"></span></td>
+      <th scope="row"><code>MISSING_EMAIL</code></th>
+      <td class="num">3</td>
+      <td class="num">3</td>
+      <td class="track"><span class="bar" style="width:33.33%;background:var(--status-good)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0">
       <th scope="row"><code>MISSING_ORDER_DATE</code></th>
       <td class="num">3</td>
@@ -162,16 +167,6 @@
       <td class="num">3</td>
       <td class="num">3</td>
       <td class="track"><span class="bar" style="width:33.33%;background:var(--status-good)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0">
-      <th scope="row"><code>MISSING_EMAIL</code></th>
-      <td class="num">3</td>
-      <td class="num">3</td>
-      <td class="track"><span class="bar" style="width:33.33%;background:var(--status-good)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0">
-      <th scope="row"><code>DUPLICATE_ORDER_ID</code></th>
-      <td class="num">2</td>
-      <td class="num">2</td>
-      <td class="track"><span class="bar" style="width:22.22%;background:var(--status-good)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0">
       <th scope="row"><code>MISSING_CUSTOMER_NAME</code></th>
       <td class="num">2</td>
@@ -188,6 +183,26 @@
       <td class="num">2</td>
       <td class="track"><span class="bar" style="width:22.22%;background:var(--status-good)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0">
+      <th scope="row"><code>DUPLICATE_ORDER_ID</code></th>
+      <td class="num">2</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:22.22%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_ORDER_ID</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:11.11%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_QUANTITY</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:11.11%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_CUSTOMER_ID</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:11.11%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
       <th scope="row"><code>MISSING_TRANSACTION_ID</code></th>
       <td class="num">1</td>
       <td class="num">1</td>
@@ -198,17 +213,7 @@
       <td class="num">1</td>
       <td class="track"><span class="bar" style="width:11.11%;background:var(--status-good)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0">
-      <th scope="row"><code>MISSING_ORDER_ID</code></th>
-      <td class="num">1</td>
-      <td class="num">1</td>
-      <td class="track"><span class="bar" style="width:11.11%;background:var(--status-good)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0">
       <th scope="row"><code>MISSING_PAYMENT_METHOD</code></th>
-      <td class="num">1</td>
-      <td class="num">1</td>
-      <td class="track"><span class="bar" style="width:11.11%;background:var(--status-good)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0">
-      <th scope="row"><code>MISSING_QUANTITY</code></th>
       <td class="num">1</td>
       <td class="num">1</td>
       <td class="track"><span class="bar" style="width:11.11%;background:var(--status-good)" aria-hidden="true"></span></td>
@@ -219,11 +224,6 @@
       <td class="track"><span class="bar" style="width:11.11%;background:var(--status-good)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0">
       <th scope="row"><code>MISSING_DESCRIPTION</code></th>
-      <td class="num">1</td>
-      <td class="num">1</td>
-      <td class="track"><span class="bar" style="width:11.11%;background:var(--status-good)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0">
-      <th scope="row"><code>MISSING_CUSTOMER_ID</code></th>
       <td class="num">1</td>
       <td class="num">1</td>
       <td class="track"><span class="bar" style="width:11.11%;background:var(--status-good)" aria-hidden="true"></span></td>
@@ -240,43 +240,59 @@
 <div class="scroll">
 <table>
   <thead><tr><th>Stage</th><th class="num">Rows</th><th>&nbsp;</th></tr></thead>
-  <tbody><tr tabindex="0" title="Every line of the 8 unparseable files, verbatim">
-      <th scope="row">Bronze · raw text lines</th>
-      <td class="num">1,701</td>
-      <td class="track"><span class="bar" style="width:100.00%;background:var(--series-1)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0" title="The 7 CSV tables, untyped">
-      <th scope="row">Bronze · master rows</th>
-      <td class="num">148</td>
-      <td class="track"><span class="bar" style="width:8.70%;background:var(--series-1)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0" title="46 from XML fragments + 11 from JSON">
+  <tbody><tr tabindex="0" title="46 from XML fragments + 11 from JSON">
       <th scope="row">Silver · transactions parsed</th>
       <td class="num">57</td>
-      <td class="track"><span class="bar" style="width:3.35%;background:var(--series-1)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:43.51%;background:var(--series-1)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="After deduplication and REJECT rules">
       <th scope="row">Silver · transactions clean</th>
       <td class="num">46</td>
-      <td class="track"><span class="bar" style="width:2.70%;background:var(--series-1)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0" title="Conformed across both clients">
-      <th scope="row">Gold · canonical transactions</th>
-      <td class="num">46</td>
-      <td class="track"><span class="bar" style="width:2.70%;background:var(--series-1)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:35.11%;background:var(--series-1)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="48 from XML + 10 from JSON">
+      <th scope="row">Silver · line items parsed</th>
+      <td class="num">58</td>
+      <td class="track"><span class="bar" style="width:44.27%;background:var(--series-1)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="Belonging to the surviving copy of each transaction">
+      <th scope="row">Silver · line items clean</th>
+      <td class="num">39</td>
+      <td class="track"><span class="bar" style="width:29.77%;background:var(--series-1)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="">
+      <th scope="row">Silver · customers</th>
+      <td class="num">43</td>
+      <td class="track"><span class="bar" style="width:32.82%;background:var(--series-1)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="">
+      <th scope="row">Silver · products</th>
+      <td class="num">37</td>
+      <td class="track"><span class="bar" style="width:28.24%;background:var(--series-1)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="">
+      <th scope="row">Silver · orders</th>
+      <td class="num">40</td>
+      <td class="track"><span class="bar" style="width:30.53%;background:var(--series-1)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="Client B only — Client A embeds payment per transaction">
+      <th scope="row">Silver · payments</th>
+      <td class="num">20</td>
+      <td class="track"><span class="bar" style="width:15.27%;background:var(--series-1)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="Retained with payload, never deleted">
+      <th scope="row">Quality findings</th>
+      <td class="num">131</td>
+      <td class="track"><span class="bar" style="width:100.00%;background:var(--series-1)" aria-hidden="true"></span></td>
     </tr></tbody>
 </table>
 </div>
 
 <div class="tiles">
   <div class="tile"><div class="v">46</div><div class="k">Canonical transactions</div></div>
-  <div class="tile"><div class="v">41</div><div class="k">Canonical line items</div></div>
+  <div class="tile"><div class="v">39</div><div class="k">Canonical line items</div></div>
   <div class="tile"><div class="v">43</div><div class="k">Customers</div></div>
   <div class="tile"><div class="v">37</div><div class="k">Products</div></div>
   <div class="tile"><div class="v">57</div><div class="k">Payments</div></div>
-  <div class="tile"><div class="v">108</div><div class="k">Quality findings</div></div>
+  <div class="tile"><div class="v">131</div><div class="k">Quality findings</div></div>
 </div>
 
 <h2>Quality findings by rule</h2>
 <p class="legend">
   <span class="item"><span class="dot dot-reject"></span>Reject — cannot be represented (13)</span>
-  <span class="item"><span class="dot dot-warn"></span>Warn — loaded and flagged (95)</span>
+  <span class="item"><span class="dot dot-warn"></span>Warn — loaded and flagged (118)</span>
 </p>
 <p class="note">
   A negative quantity may be a return and a negative payment may be a refund, so those
@@ -286,106 +302,111 @@
 <div class="scroll">
 <table>
   <thead><tr><th>Rule</th><th>Severity</th><th class="num">Findings</th><th>&nbsp;</th></tr></thead>
-  <tbody><tr tabindex="0" title="transaction_item · WARN">
+  <tbody><tr tabindex="0" title="transaction · WARN">
+      <th scope="row"><code>ORPHAN_ORDER</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">23</td>
+      <td class="track"><span class="bar" style="width:100.00%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction_item · WARN">
       <th scope="row"><code>ORPHAN_SKU</code></th>
       <td class="sev"><span class="dot dot-warn"></span>WARN</td>
       <td class="num">20</td>
-      <td class="track"><span class="bar" style="width:100.00%;background:var(--status-warning)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:86.96%;background:var(--status-warning)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="transaction · WARN">
       <th scope="row"><code>ORPHAN_CUSTOMER</code></th>
       <td class="sev"><span class="dot dot-warn"></span>WARN</td>
       <td class="num">18</td>
-      <td class="track"><span class="bar" style="width:90.00%;background:var(--status-warning)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:78.26%;background:var(--status-warning)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="transaction · WARN">
       <th scope="row"><code>DUPLICATE_TRANSACTION_ID</code></th>
       <td class="sev"><span class="dot dot-warn"></span>WARN</td>
       <td class="num">12</td>
-      <td class="track"><span class="bar" style="width:60.00%;background:var(--status-warning)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:52.17%;background:var(--status-warning)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="transaction_item · WARN">
       <th scope="row"><code>NEGATIVE_QUANTITY</code></th>
       <td class="sev"><span class="dot dot-warn"></span>WARN</td>
       <td class="num">9</td>
-      <td class="track"><span class="bar" style="width:45.00%;background:var(--status-warning)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:39.13%;background:var(--status-warning)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="transaction · WARN">
       <th scope="row"><code>DUPLICATE_CUSTOMER</code></th>
       <td class="sev"><span class="dot dot-warn"></span>WARN</td>
       <td class="num">8</td>
-      <td class="track"><span class="bar" style="width:40.00%;background:var(--status-warning)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:34.78%;background:var(--status-warning)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="transaction · WARN">
       <th scope="row"><code>NEGATIVE_PAYMENT_AMOUNT</code></th>
       <td class="sev"><span class="dot dot-warn"></span>WARN</td>
       <td class="num">6</td>
-      <td class="track"><span class="bar" style="width:30.00%;background:var(--status-warning)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0" title="transaction · WARN">
-      <th scope="row"><code>MISSING_ORDER_DATE</code></th>
-      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
-      <td class="num">5</td>
-      <td class="track"><span class="bar" style="width:25.00%;background:var(--status-warning)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:26.09%;background:var(--status-warning)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="transaction_item · REJECT">
       <th scope="row"><code>MISSING_SKU</code></th>
       <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
       <td class="num">5</td>
-      <td class="track"><span class="bar" style="width:25.00%;background:var(--status-critical)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:21.74%;background:var(--status-critical)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="transaction · WARN">
-      <th scope="row"><code>DUPLICATE_ORDER_ID</code></th>
+      <th scope="row"><code>MISSING_ORDER_DATE</code></th>
       <td class="sev"><span class="dot dot-warn"></span>WARN</td>
-      <td class="num">4</td>
-      <td class="track"><span class="bar" style="width:20.00%;background:var(--status-warning)" aria-hidden="true"></span></td>
+      <td class="num">5</td>
+      <td class="track"><span class="bar" style="width:21.74%;background:var(--status-warning)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="transaction · WARN">
       <th scope="row"><code>MISSING_EMAIL</code></th>
       <td class="sev"><span class="dot dot-warn"></span>WARN</td>
       <td class="num">4</td>
-      <td class="track"><span class="bar" style="width:20.00%;background:var(--status-warning)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:17.39%;background:var(--status-warning)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="transaction · WARN">
-      <th scope="row"><code>MISSING_CUSTOMER_NAME</code></th>
+      <th scope="row"><code>DUPLICATE_ORDER_ID</code></th>
       <td class="sev"><span class="dot dot-warn"></span>WARN</td>
-      <td class="num">3</td>
-      <td class="track"><span class="bar" style="width:15.00%;background:var(--status-warning)" aria-hidden="true"></span></td>
+      <td class="num">4</td>
+      <td class="track"><span class="bar" style="width:17.39%;background:var(--status-warning)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="transaction · WARN">
       <th scope="row"><code>INVALID_EMAIL</code></th>
       <td class="sev"><span class="dot dot-warn"></span>WARN</td>
       <td class="num">3</td>
-      <td class="track"><span class="bar" style="width:15.00%;background:var(--status-warning)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0" title="transaction · REJECT">
-      <th scope="row"><code>MISSING_TRANSACTION_ID</code></th>
-      <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
-      <td class="num">2</td>
-      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-critical)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:13.04%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · WARN">
+      <th scope="row"><code>MISSING_CUSTOMER_NAME</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">3</td>
+      <td class="track"><span class="bar" style="width:13.04%;background:var(--status-warning)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="transaction_item · REJECT">
       <th scope="row"><code>NEGATIVE_UNIT_PRICE</code></th>
       <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
       <td class="num">2</td>
-      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-critical)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:8.70%;background:var(--status-critical)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · REJECT">
+      <th scope="row"><code>MISSING_TRANSACTION_ID</code></th>
+      <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:8.70%;background:var(--status-critical)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="transaction · REJECT">
       <th scope="row"><code>MISSING_ORDER_ID</code></th>
       <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
       <td class="num">2</td>
-      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-critical)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0" title="transaction · REJECT">
-      <th scope="row"><code>MISSING_CUSTOMER_ID</code></th>
-      <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
-      <td class="num">1</td>
-      <td class="track"><span class="bar" style="width:5.00%;background:var(--status-critical)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:8.70%;background:var(--status-critical)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="transaction_item · REJECT">
       <th scope="row"><code>MISSING_QUANTITY</code></th>
       <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
       <td class="num">1</td>
-      <td class="track"><span class="bar" style="width:5.00%;background:var(--status-critical)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0" title="transaction_item · WARN">
-      <th scope="row"><code>MISSING_DESCRIPTION</code></th>
-      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-critical)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · REJECT">
+      <th scope="row"><code>MISSING_CUSTOMER_ID</code></th>
+      <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
       <td class="num">1</td>
-      <td class="track"><span class="bar" style="width:5.00%;background:var(--status-warning)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-critical)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="transaction · WARN">
       <th scope="row"><code>MISSING_PAYMENT_METHOD</code></th>
       <td class="sev"><span class="dot dot-warn"></span>WARN</td>
       <td class="num">1</td>
-      <td class="track"><span class="bar" style="width:5.00%;background:var(--status-warning)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-warning)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="transaction · WARN">
       <th scope="row"><code>MISSING_PAYMENT_AMOUNT</code></th>
       <td class="sev"><span class="dot dot-warn"></span>WARN</td>
       <td class="num">1</td>
-      <td class="track"><span class="bar" style="width:5.00%;background:var(--status-warning)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction_item · WARN">
+      <th scope="row"><code>MISSING_DESCRIPTION</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-warning)" aria-hidden="true"></span></td>
     </tr></tbody>
 </table>
 </div>
@@ -403,11 +424,11 @@
       <h3><span class="dot" style="background:var(--series-1)"></span>Client A — XML + CSV</h3>
       <dl>
         <div><dt>Canonical transactions</dt><dd>37</dd></div>
-        <div><dt>Findings · warn</dt><dd>86</dd></div>
+        <div><dt>Findings · warn</dt><dd>109</dd></div>
         <div><dt>Findings · reject</dt><dd>12</dd></div>
         <div><dt>Payments not matching their own lines</dt>
-             <dd>9 of 37</dd></div>
-        <div><dt>Total absolute variance</dt><dd>694.76</dd></div>
+             <dd>16 of 37</dd></div>
+        <div><dt>Total absolute variance</dt><dd>872.18</dd></div>
       </dl>
     </article>
   
@@ -418,8 +439,8 @@
         <div><dt>Findings · warn</dt><dd>9</dd></div>
         <div><dt>Findings · reject</dt><dd>1</dd></div>
         <div><dt>Payments not matching their own lines</dt>
-             <dd>1 of 9</dd></div>
-        <div><dt>Total absolute variance</dt><dd>53.94</dd></div>
+             <dd>2 of 9</dd></div>
+        <div><dt>Total absolute variance</dt><dd>203.93</dd></div>
       </dl>
     </article>
 </div>

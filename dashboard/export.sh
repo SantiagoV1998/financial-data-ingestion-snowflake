@@ -6,4 +6,7 @@ echo ',"coverage":' ; q "SELECT expected_rule, COUNT(*) AS labelled, SUM(IFF(out
 echo ',"classification":' ; q "SELECT classification, COUNT(*) AS labels FROM silver.v_label_classification GROUP BY classification;"
 echo ',"variance":' ; q "SELECT source_system, COUNT(*) AS txns, SUM(IFF(amount_variance IS NOT NULL AND ABS(amount_variance)>0.01,1,0)) AS with_variance, ROUND(SUM(ABS(COALESCE(amount_variance,0))),2) AS total_abs_variance FROM gold.fact_transaction GROUP BY source_system;"
 echo ',"client_rows":' ; q "SELECT source_system, COUNT(*) AS transactions FROM gold.fact_transaction GROUP BY source_system;"
+echo ',"funnel":' ; q "SELECT stage, row_count FROM silver.v_silver_summary;"
+echo ',"gold_counts":' ; q "SELECT 'transactions' AS entity, COUNT(*) AS n FROM gold.fact_transaction UNION ALL SELECT 'items', COUNT(*) FROM gold.fact_order_item UNION ALL SELECT 'customers', COUNT(*) FROM gold.dim_customer UNION ALL SELECT 'products', COUNT(*) FROM gold.dim_product UNION ALL SELECT 'payments', COUNT(*) FROM gold.fact_payment;"
+echo ',"master_annotations":' ; q "SELECT entity, source_annotation, COUNT(*) AS records FROM silver.v_master_annotations GROUP BY entity, source_annotation ORDER BY records DESC;"
 echo "}"

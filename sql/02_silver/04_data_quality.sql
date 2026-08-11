@@ -33,11 +33,14 @@ CREATE OR REPLACE TABLE dq_quarantine (
     source_system    VARCHAR       NOT NULL,
     entity           VARCHAR       NOT NULL,  -- transaction | transaction_item
     natural_key      VARCHAR,                 -- transaction id where known
+    -- Which copy of a duplicated record this finding came from. Without it a
+    -- REJECT on one copy cannot be told apart from a REJECT on another, and
+    -- deduplication then drops clean copies along with the bad one.
+    document_position NUMBER,
     line_number      NUMBER,
     rule_code        VARCHAR       NOT NULL,
     rule_detail      VARCHAR,
     severity         VARCHAR       NOT NULL,  -- REJECT | WARN
-    source_annotation VARCHAR,                -- the provider's own label, if any
     raw_payload      VARIANT,
     detected_at      TIMESTAMP_NTZ NOT NULL DEFAULT SYSDATE()
 )
@@ -85,58 +88,58 @@ FROM   stg_client_b_transaction_items;
 
 /* Missing identifiers and fields ------------------------------------------ */
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction', transaction_id,
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'transaction', transaction_id, document_position,
        'MISSING_TRANSACTION_ID',
        'Transaction has no id, so it cannot be keyed or deduplicated',
        'REJECT', raw_payload
 FROM v_all_transactions WHERE transaction_id IS NULL;
 
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction', transaction_id,
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'transaction', transaction_id, document_position,
        'MISSING_ORDER_ID',
        'Transaction has no order id, so it cannot be attached to an order',
        'REJECT', raw_payload
 FROM v_all_transactions WHERE order_id IS NULL;
 
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction', transaction_id,
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'transaction', transaction_id, document_position,
        'MISSING_CUSTOMER_ID',
        'Transaction has no customer id',
        'REJECT', raw_payload
 FROM v_all_transactions WHERE customer_id IS NULL;
 
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction', transaction_id,
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'transaction', transaction_id, document_position,
        'MISSING_ORDER_DATE',
        'Order date absent or unparseable: ' || COALESCE(order_date_raw, '(absent)'),
        'WARN', raw_payload
 FROM v_all_transactions WHERE order_date IS NULL;
 
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction', transaction_id,
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'transaction', transaction_id, document_position,
        'MISSING_CUSTOMER_NAME', 'Customer name absent', 'WARN', raw_payload
 FROM v_all_transactions WHERE customer_name IS NULL;
 
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction', transaction_id,
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'transaction', transaction_id, document_position,
        'MISSING_EMAIL', 'Customer email absent', 'WARN', raw_payload
 FROM v_all_transactions WHERE email IS NULL;
 
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction', transaction_id,
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'transaction', transaction_id, document_position,
        'MISSING_PAYMENT_METHOD', 'Payment method absent', 'WARN', raw_payload
 FROM v_all_transactions WHERE payment_method IS NULL;
 
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction', transaction_id,
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'transaction', transaction_id, document_position,
        'MISSING_PAYMENT_AMOUNT',
        'Payment amount absent or unparseable: ' || COALESCE(payment_amount_raw, '(absent)'),
        'WARN', raw_payload
@@ -144,8 +147,8 @@ FROM v_all_transactions WHERE payment_amount IS NULL;
 
 /* Invalid values ----------------------------------------------------------- */
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction', transaction_id,
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'transaction', transaction_id, document_position,
        'INVALID_EMAIL', 'Email does not parse as an address: ' || email,
        'WARN', raw_payload
 FROM v_all_transactions
@@ -155,8 +158,8 @@ WHERE email IS NOT NULL
 -- A negative payment is not automatically wrong: refunds and chargebacks are
 -- negative by nature, and this is a payments dataset. Flagged, not rejected.
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction', transaction_id,
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'transaction', transaction_id, document_position,
        'NEGATIVE_PAYMENT_AMOUNT',
        'Payment amount is negative (' || payment_amount || ') — may be a refund',
        'WARN', raw_payload
@@ -167,8 +170,8 @@ FROM v_all_transactions WHERE payment_amount < 0;
    delivery artefact; the same order billed under different transaction ids is
    a business problem. Collapsing both into one rule hides the second.        */
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
-SELECT d.source_system, 'transaction', d.transaction_id,
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT d.source_system, 'transaction', d.transaction_id, d.document_position,
        'DUPLICATE_TRANSACTION_ID',
        'Transaction id appears ' || d.occurrences || ' times in the delivery',
        'WARN', d.raw_payload
@@ -180,8 +183,8 @@ FROM (
 WHERE d.occurrences > 1;
 
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
-SELECT d.source_system, 'transaction', d.transaction_id,
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT d.source_system, 'transaction', d.transaction_id, d.document_position,
        'DUPLICATE_ORDER_ID',
        'Order ' || d.order_id || ' appears under ' || d.distinct_txns || ' different transaction ids',
        'WARN', d.raw_payload
@@ -199,7 +202,7 @@ WHERE d.distinct_txns > 1;
 -- exists because the ground-truth comparison in 05 showed six labelled
 -- anomalies with no rule behind them.
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
 WITH d AS (
     SELECT m.source_system, m.customer_id, COUNT(*) AS occurrences
     FROM  (SELECT source_system, customer_id FROM stg_client_a_customers
@@ -209,7 +212,7 @@ WITH d AS (
     GROUP BY m.source_system, m.customer_id
     HAVING COUNT(*) > 1
 )
-SELECT t.source_system, 'transaction', t.transaction_id,
+SELECT t.source_system, 'transaction', t.transaction_id, t.document_position,
        'DUPLICATE_CUSTOMER',
        'Customer ' || t.customer_id || ' appears ' || d.occurrences
        || ' times in the customer master, so any join against it multiplies rows',
@@ -221,12 +224,12 @@ INNER JOIN d
 
 /* Referential integrity against master data -------------------------------- */
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
 -- NOT EXISTS, not a LEFT JOIN. The customer master itself contains duplicates
 -- (CUST-A-0001 appears twice), so a join multiplies every matching transaction
 -- and the finding counts come out inflated — 51 rows for 46 transactions.
 -- Existence is the question being asked, so ask it directly.
-SELECT t.source_system, 'transaction', t.transaction_id,
+SELECT t.source_system, 'transaction', t.transaction_id, t.document_position,
        'ORPHAN_CUSTOMER',
        'Customer ' || t.customer_id || ' has no master record',
        'WARN', t.raw_payload
@@ -241,20 +244,41 @@ WHERE  t.customer_id IS NOT NULL
           AND c.customer_id   = t.customer_id
       );
 
+-- 19 of Client A's transactions reference an order id that Orders.csv never
+-- delivered. Gold derives order_key from the id regardless, so without this rule
+-- the break is invisible in quarantine, in the validation gate and on the
+-- dashboard alike.
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT t.source_system, 'transaction', t.transaction_id, t.document_position,
+       'ORPHAN_ORDER',
+       'Order ' || t.order_id || ' has no master record',
+       'WARN', t.raw_payload
+FROM   v_all_transactions AS t
+WHERE  t.order_id IS NOT NULL
+  AND  NOT EXISTS (
+        SELECT 1
+        FROM  (SELECT source_system, order_id FROM stg_client_a_orders
+               UNION ALL
+               SELECT source_system, order_id FROM stg_client_b_orders) AS o
+        WHERE o.source_system = t.source_system
+          AND o.order_id      = t.order_id
+      );
+
 /* ---------------------------------------------------------------------------
    Line-item rules
    ------------------------------------------------------------------------ */
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, line_number, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction_item', transaction_id, line_number,
+    (source_system, entity, natural_key, document_position, line_number, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'transaction_item', transaction_id, document_position, line_number,
        'MISSING_SKU', 'Line has no SKU, so it cannot be matched to a product',
        'REJECT', raw_payload
 FROM v_all_transaction_items
 WHERE raw_payload IS NOT NULL AND sku IS NULL;
 
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, line_number, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction_item', transaction_id, line_number,
+    (source_system, entity, natural_key, document_position, line_number, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'transaction_item', transaction_id, document_position, line_number,
        'MISSING_QUANTITY',
        'Quantity absent or unparseable: ' || COALESCE(quantity_raw, '(absent)'),
        'REJECT', raw_payload
@@ -262,16 +286,16 @@ FROM v_all_transaction_items
 WHERE raw_payload IS NOT NULL AND quantity IS NULL;
 
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, line_number, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction_item', transaction_id, line_number,
+    (source_system, entity, natural_key, document_position, line_number, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'transaction_item', transaction_id, document_position, line_number,
        'MISSING_DESCRIPTION', 'Line has no description', 'WARN', raw_payload
 FROM v_all_transaction_items
 WHERE raw_payload IS NOT NULL AND description IS NULL;
 
 -- Negative quantity: a return line, or corruption. The client decides.
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, line_number, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction_item', transaction_id, line_number,
+    (source_system, entity, natural_key, document_position, line_number, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'transaction_item', transaction_id, document_position, line_number,
        'NEGATIVE_QUANTITY',
        'Quantity is ' || quantity || ' — may be a return line',
        'WARN', raw_payload
@@ -279,18 +303,18 @@ FROM v_all_transaction_items WHERE quantity < 0;
 
 -- A negative unit price has no comparable reading. Prices are not signed.
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, line_number, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction_item', transaction_id, line_number,
+    (source_system, entity, natural_key, document_position, line_number, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'transaction_item', transaction_id, document_position, line_number,
        'NEGATIVE_UNIT_PRICE',
        'Unit price is ' || unit_price || ', which no reading makes valid',
        'REJECT', raw_payload
 FROM v_all_transaction_items WHERE unit_price < 0;
 
 INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, line_number, rule_code, rule_detail, severity, raw_payload)
+    (source_system, entity, natural_key, document_position, line_number, rule_code, rule_detail, severity, raw_payload)
 -- NOT EXISTS for the same reason as ORPHAN_CUSTOMER above: the product master
 -- also carries duplicates, and a join would multiply the findings.
-SELECT i.source_system, 'transaction_item', i.transaction_id, i.line_number,
+SELECT i.source_system, 'transaction_item', i.transaction_id, i.document_position, i.line_number,
        'ORPHAN_SKU',
        'SKU ' || i.sku || ' has no product master record',
        'WARN', i.raw_payload

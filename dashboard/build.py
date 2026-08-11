@@ -37,14 +37,28 @@ for r in rows("by_client"):
 variance = {r["SOURCE_SYSTEM"]: r for r in rows("variance")}
 client_txns = {r["SOURCE_SYSTEM"]: r["TRANSACTIONS"] for r in rows("client_rows")}
 
-funnel = [
-    ("Bronze · raw text lines", 1701, "Every line of the 8 unparseable files, verbatim"),
-    ("Bronze · master rows", 148, "The 7 CSV tables, untyped"),
-    ("Silver · transactions parsed", 57, "46 from XML fragments + 11 from JSON"),
-    ("Silver · transactions clean", 46, "After deduplication and REJECT rules"),
-    ("Gold · canonical transactions", 46, "Conformed across both clients"),
-]
-max_funnel = max(v for _, v, _ in funnel)
+# Every figure comes from data.json. Nothing is a literal here: hardcoded
+# numbers went stale beside freshly exported ones with no signal that they had,
+# on a page whose own text promises the opposite.
+STAGE_LABELS = {
+    "transactions_parsed": ("Silver · transactions parsed", "46 from XML fragments + 11 from JSON"),
+    "transactions_clean": ("Silver · transactions clean", "After deduplication and REJECT rules"),
+    "items_parsed": ("Silver · line items parsed", "48 from XML + 10 from JSON"),
+    "items_clean": ("Silver · line items clean", "Belonging to the surviving copy of each transaction"),
+    "customers_clean": ("Silver · customers", ""),
+    "products_clean": ("Silver · products", ""),
+    "orders_clean": ("Silver · orders", ""),
+    "payments_clean": ("Silver · payments", "Client B only — Client A embeds payment per transaction"),
+    "quarantine_findings": ("Quality findings", "Retained with payload, never deleted"),
+}
+_order = list(STAGE_LABELS)
+funnel = sorted(
+    ((STAGE_LABELS[r["STAGE"]][0], r["ROW_COUNT"], STAGE_LABELS[r["STAGE"]][1])
+     for r in rows("funnel") if r["STAGE"] in STAGE_LABELS),
+    key=lambda x: _order.index(next(k for k, v in STAGE_LABELS.items() if v[0] == x[0])),
+)
+max_funnel = max((v for _, v, _ in funnel), default=1)
+gold_counts = {r["ENTITY"]: r["N"] for r in rows("gold_counts")}
 
 rule_rows = sorted(rows("rules"), key=lambda r: -r["FINDINGS"])
 max_rule = max((r["FINDINGS"] for r in rule_rows), default=1)
@@ -238,7 +252,7 @@ HTML = f"""<title>Financial Data Ingestion — Pipeline Results</title>
     {detected} of {labelled} expectations satisfied. Every ground-truth label is
     classified and the totals reconcile: {classification.get('MAPPED_TO_RULE', 0)} mapped
     to a rule, {classification.get('SCHEMA_VARIATION_BY_DESIGN', 0)} schema variation
-    handled by design, 0 unclassified.
+    handled by design, {classification.get('UNCLASSIFIED', 0)} unclassified.
   </p>
 </div>
 
@@ -266,11 +280,11 @@ HTML = f"""<title>Financial Data Ingestion — Pipeline Results</title>
 </div>
 
 <div class="tiles">
-  <div class="tile"><div class="v">46</div><div class="k">Canonical transactions</div></div>
-  <div class="tile"><div class="v">41</div><div class="k">Canonical line items</div></div>
-  <div class="tile"><div class="v">43</div><div class="k">Customers</div></div>
-  <div class="tile"><div class="v">37</div><div class="k">Products</div></div>
-  <div class="tile"><div class="v">57</div><div class="k">Payments</div></div>
+  <div class="tile"><div class="v">{gold_counts.get('transactions', 0)}</div><div class="k">Canonical transactions</div></div>
+  <div class="tile"><div class="v">{gold_counts.get('items', 0)}</div><div class="k">Canonical line items</div></div>
+  <div class="tile"><div class="v">{gold_counts.get('customers', 0)}</div><div class="k">Customers</div></div>
+  <div class="tile"><div class="v">{gold_counts.get('products', 0)}</div><div class="k">Products</div></div>
+  <div class="tile"><div class="v">{gold_counts.get('payments', 0)}</div><div class="k">Payments</div></div>
   <div class="tile"><div class="v">{reject_total + warn_total}</div><div class="k">Quality findings</div></div>
 </div>
 

@@ -62,6 +62,38 @@ SELECT 'fact_order_item_transaction_resolves', 0,
           AND NOT EXISTS (SELECT 1 FROM fact_transaction AS t
                           WHERE t.transaction_key = i.transaction_key))
 UNION ALL
+-- These two were absent, and their absence hid a real break: order_key was
+-- derived from the id unconditionally, so 19 transactions and 15 line items
+-- carried foreign keys pointing at fact_order rows that were never created.
+-- The header above says "what must never happen is a key that points at
+-- nothing" — nothing was checking.
+SELECT 'fact_transaction_order_resolves', 0,
+       (SELECT COUNT(*) FROM fact_transaction AS f
+        WHERE f.order_key IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM fact_order AS o
+                          WHERE o.order_key = f.order_key))
+UNION ALL
+SELECT 'fact_order_item_order_resolves', 0,
+       (SELECT COUNT(*) FROM fact_order_item AS i
+        WHERE i.order_key IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM fact_order AS o
+                          WHERE o.order_key = i.order_key))
+UNION ALL
+-- Every line must belong to the copy of the transaction that survived
+-- deduplication. Joining without document_position let lines from a discarded
+-- copy attach to the surviving one and invent a 91.00 variance on TXN-1001.
+SELECT 'items_belong_to_surviving_copy', 0,
+       (SELECT COUNT(*) FROM silver.transaction_items_clean AS i
+        WHERE NOT EXISTS (SELECT 1 FROM silver.transactions_clean AS t
+                          WHERE t.source_system     = i.source_system
+                            AND t.transaction_id    = i.transaction_id
+                            AND t.document_position = i.document_position))
+UNION ALL
+-- A NULL variance excluded the worst reconciliation cases from the figures.
+SELECT 'variance_never_null_when_paid', 0,
+       (SELECT COUNT(*) FROM fact_transaction
+        WHERE payment_amount IS NOT NULL AND amount_variance IS NULL)
+UNION ALL
 SELECT 'fact_order_item_product_resolves', 0,
        (SELECT COUNT(*) FROM fact_order_item AS i
         WHERE i.product_key IS NOT NULL
