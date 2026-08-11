@@ -182,7 +182,11 @@ WITH li AS (SELECT source_system, transaction_key,
            GROUP  BY source_system, transaction_key
 ),
 rj AS (SELECT source_system, natural_key, document_position,
-                  COUNT(*) AS rejected_lines
+                  -- DISTINCT line_number, not COUNT(*): a row is deliberately
+                  -- recorded once per rule it violates, so a line that is both
+                  -- missing its SKU and negatively priced would be counted twice
+                  -- and overstate how much of the transaction was unreadable.
+                  COUNT(DISTINCT line_number) AS rejected_lines
            FROM   silver.dq_quarantine
            WHERE  entity = 'transaction_item' AND severity = 'REJECT'
            GROUP  BY source_system, natural_key, document_position
@@ -213,9 +217,15 @@ SELECT
     COALESCE(rj.rejected_lines, 0) = 0                               AS variance_is_comparable,
     COALESCE(t.payment_currency, li.currency)                        AS currency,
     EXISTS(SELECT 1 FROM silver.dq_quarantine AS q
-            WHERE q.source_system = t.source_system
-              AND q.natural_key   = t.transaction_id
-              AND q.severity      = 'WARN')                          AS has_quality_warning
+            -- Scoped to THIS copy. Without document_position a warning raised
+            -- against a discarded copy flags the surviving one — the same
+            -- cross-copy leak the deduplication join was corrected for. A
+            -- previous commit claimed this fix and did not apply it.
+            WHERE q.source_system     = t.source_system
+              AND q.natural_key       = t.transaction_id
+              AND q.document_position = t.document_position
+              AND q.entity            = 'transaction'
+              AND q.severity          = 'WARN')                      AS has_quality_warning
 FROM      silver.transactions_clean AS t
 LEFT JOIN li
        ON li.transaction_key = MD5(t.source_system || '|' || t.transaction_id)

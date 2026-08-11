@@ -34,6 +34,13 @@ SELECT 'fact_order_item_key_unique', 0,
        (SELECT COUNT(*) FROM (SELECT order_item_key FROM fact_order_item
                               GROUP BY 1 HAVING COUNT(*) > 1) AS dupes)
 UNION ALL
+-- fact_order was the one primary key with no uniqueness assertion, while three
+-- tables resolve foreign keys against it: a duplicate would fan out
+-- fact_transaction, fact_order_item and fact_payment simultaneously.
+SELECT 'fact_order_key_unique', 0,
+       (SELECT COUNT(*) FROM (SELECT order_key FROM fact_order
+                              GROUP BY 1 HAVING COUNT(*) > 1) AS dupes)
+UNION ALL
 SELECT 'fact_payment_key_unique', 0,
        (SELECT COUNT(*) FROM (SELECT payment_key FROM fact_payment
                               GROUP BY 1 HAVING COUNT(*) > 1) AS dupes)

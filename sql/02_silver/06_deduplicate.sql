@@ -50,7 +50,20 @@ FROM   (SELECT v.*,
                 WHERE  i.source_system     = v.source_system
                   AND  i.transaction_id    = v.transaction_id
                   AND  i.document_position = v.document_position
-                  AND  i.raw_payload IS NOT NULL) AS line_item_count
+                  AND  i.raw_payload IS NOT NULL
+                  -- Only READABLE lines count. Counting rejected ones could keep
+                  -- a copy whose lines are all unusable over one that is fine,
+                  -- and the validation gate cannot catch it: the
+                  -- no_transaction_lost_its_only_lines check exempts any
+                  -- transaction with rejected lines, which is exactly this case.
+                  AND  NOT EXISTS (SELECT 1 FROM dq_quarantine AS q
+                                   WHERE q.entity            = 'transaction_item'
+                                     AND q.severity          = 'REJECT'
+                                     AND q.source_system     = i.source_system
+                                     AND q.natural_key       = i.transaction_id
+                                     AND q.document_position = i.document_position
+                                     AND q.line_number       = i.line_number)
+                 ) AS line_item_count
         FROM v_all_transactions AS v) AS t
 WHERE  NOT EXISTS (
          SELECT 1 FROM dq_quarantine AS q

@@ -143,11 +143,6 @@
       <td class="num">8</td>
       <td class="track"><span class="bar" style="width:80.00%;background:var(--status-good)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0">
-      <th scope="row"><code>MISSING_ORDER_DATE</code></th>
-      <td class="num">4</td>
-      <td class="num">4</td>
-      <td class="track"><span class="bar" style="width:40.00%;background:var(--status-good)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0">
       <th scope="row"><code>DUPLICATE_CUSTOMER</code></th>
       <td class="num">4</td>
       <td class="num">4</td>
@@ -158,7 +153,12 @@
       <td class="num">4</td>
       <td class="track"><span class="bar" style="width:40.00%;background:var(--status-good)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0">
-      <th scope="row"><code>MISSING_EMAIL</code></th>
+      <th scope="row"><code>MISSING_ORDER_DATE</code></th>
+      <td class="num">4</td>
+      <td class="num">4</td>
+      <td class="track"><span class="bar" style="width:40.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_SKU</code></th>
       <td class="num">3</td>
       <td class="num">3</td>
       <td class="track"><span class="bar" style="width:30.00%;background:var(--status-good)" aria-hidden="true"></span></td>
@@ -168,7 +168,7 @@
       <td class="num">3</td>
       <td class="track"><span class="bar" style="width:30.00%;background:var(--status-good)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0">
-      <th scope="row"><code>MISSING_SKU</code></th>
+      <th scope="row"><code>MISSING_EMAIL</code></th>
       <td class="num">3</td>
       <td class="num">3</td>
       <td class="track"><span class="bar" style="width:30.00%;background:var(--status-good)" aria-hidden="true"></span></td>
@@ -183,12 +183,12 @@
       <td class="num">2</td>
       <td class="track"><span class="bar" style="width:20.00%;background:var(--status-good)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0">
-      <th scope="row"><code>MISSING_ORDER_ID</code></th>
+      <th scope="row"><code>NEGATIVE_UNIT_PRICE</code></th>
       <td class="num">2</td>
       <td class="num">2</td>
       <td class="track"><span class="bar" style="width:20.00%;background:var(--status-good)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0">
-      <th scope="row"><code>NEGATIVE_UNIT_PRICE</code></th>
+      <th scope="row"><code>MISSING_ORDER_ID</code></th>
       <td class="num">2</td>
       <td class="num">2</td>
       <td class="track"><span class="bar" style="width:20.00%;background:var(--status-good)" aria-hidden="true"></span></td>
@@ -203,22 +203,7 @@
       <td class="num">1</td>
       <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0">
-      <th scope="row"><code>MISSING_QUANTITY</code></th>
-      <td class="num">1</td>
-      <td class="num">1</td>
-      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0">
       <th scope="row"><code>MISSING_CUSTOMER_ID</code></th>
-      <td class="num">1</td>
-      <td class="num">1</td>
-      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0">
-      <th scope="row"><code>MISSING_DESCRIPTION</code></th>
-      <td class="num">1</td>
-      <td class="num">1</td>
-      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0">
-      <th scope="row"><code>MISSING_TRANSACTION_ID</code></th>
       <td class="num">1</td>
       <td class="num">1</td>
       <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
@@ -228,7 +213,22 @@
       <td class="num">1</td>
       <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_TRANSACTION_ID</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_QUANTITY</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
       <th scope="row"><code>ORPHAN_CUSTOMER or MISSING_CUSTOMER_ID</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_DESCRIPTION</code></th>
       <td class="num">1</td>
       <td class="num">1</td>
       <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
@@ -387,18 +387,18 @@
       <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
       <td class="num">2</td>
       <td class="track"><span class="bar" style="width:8.70%;background:var(--status-critical)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0" title="transaction · REJECT">
-      <th scope="row"><code>MISSING_CUSTOMER_ID</code></th>
-      <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
+    </tr><tr tabindex="0" title="transaction · WARN">
+      <th scope="row"><code>MISSING_PAYMENT_AMOUNT</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
       <td class="num">1</td>
-      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-critical)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-warning)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="transaction · WARN">
       <th scope="row"><code>MISSING_PAYMENT_METHOD</code></th>
       <td class="sev"><span class="dot dot-warn"></span>WARN</td>
       <td class="num">1</td>
       <td class="track"><span class="bar" style="width:4.35%;background:var(--status-warning)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0" title="transaction_item · REJECT">
-      <th scope="row"><code>MISSING_QUANTITY</code></th>
+    </tr><tr tabindex="0" title="transaction · REJECT">
+      <th scope="row"><code>MISSING_CUSTOMER_ID</code></th>
       <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
       <td class="num">1</td>
       <td class="track"><span class="bar" style="width:4.35%;background:var(--status-critical)" aria-hidden="true"></span></td>
@@ -407,11 +407,11 @@
       <td class="sev"><span class="dot dot-warn"></span>WARN</td>
       <td class="num">1</td>
       <td class="track"><span class="bar" style="width:4.35%;background:var(--status-warning)" aria-hidden="true"></span></td>
-    </tr><tr tabindex="0" title="transaction · WARN">
-      <th scope="row"><code>MISSING_PAYMENT_AMOUNT</code></th>
-      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+    </tr><tr tabindex="0" title="transaction_item · REJECT">
+      <th scope="row"><code>MISSING_QUANTITY</code></th>
+      <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
       <td class="num">1</td>
-      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-warning)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-critical)" aria-hidden="true"></span></td>
     </tr></tbody>
 </table>
 </div>

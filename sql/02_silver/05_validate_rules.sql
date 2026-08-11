@@ -62,7 +62,10 @@ FROM (
         LAST_VALUE(REGEXP_SUBSTR(line_text, '(C-TXN-[0-9]+)', 1, 1, 'e', 1)) IGNORE NULLS
             OVER (ORDER BY file_row_number
                   ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS transaction_id,
-        LOWER(TRIM(REGEXP_SUBSTR(line_text, '//\\s*(.*)$', 1, 1, 'e', 1)))  AS label
+-- Same (^|[^:]) guard the parser uses: without it a https:// URL is read as
+        -- a label, attributed to the nearest preceding id, and can add a phantom
+        -- expectation to the coverage denominator.
+        LOWER(TRIM(REGEXP_SUBSTR(line_text, '(^|[^:])//\\s*(.*)$', 1, 1, 'e', 2))) AS label
     FROM   bronze.raw_text_lines
     WHERE  source_file ILIKE '%transactions.json'
 ) AS jb
@@ -125,7 +128,13 @@ ORDER  BY records DESC, entity ASC;
    labelled defect, so the expectation lists alternatives.
    ------------------------------------------------------------------------ */
 CREATE OR REPLACE VIEW v_label_expectations AS
-SELECT g.source_system, g.transaction_id, g.label, e.phrase, e.acceptable_rules
+SELECT g.source_system, g.transaction_id, g.label, e.phrase, e.acceptable_rules,
+       -- Position of this label among labels expecting the same rule, used to
+       -- pair unkeyable findings one-for-one instead of letting a single
+       -- quarantine row satisfy all of them.
+       ROW_NUMBER() OVER (PARTITION BY g.source_system,
+                                       ARRAY_TO_STRING(e.acceptable_rules, ',')
+                          ORDER BY g.transaction_id) AS label_ordinal
 FROM   v_ground_truth AS g,
 LATERAL (
     SELECT m.phrase, m.acceptable_rules FROM (
@@ -205,18 +214,32 @@ LATERAL (
    that condition did fire.
    ------------------------------------------------------------------------ */
 CREATE OR REPLACE VIEW v_rule_coverage AS
+WITH unkeyable AS (
+    -- A transaction with no id cannot be matched on natural_key: the quarantine
+    -- row records the id it does not have. Counting them lets the nth such label
+    -- pair with the nth such finding, so three labels against one finding report
+    -- one detection rather than three.
+    SELECT COUNT(*) AS found
+    FROM   dq_quarantine
+    WHERE  rule_code = 'MISSING_TRANSACTION_ID'
+)
 SELECT
     x.transaction_id,
     x.label,
     ARRAY_TO_STRING(x.acceptable_rules, ' or ') AS expected_rule,
-    IFF(EXISTS (
+    CASE
+      WHEN EXISTS (
             SELECT 1 FROM dq_quarantine AS q
             WHERE q.source_system = x.source_system
               AND ARRAY_CONTAINS(q.rule_code::VARIANT, x.acceptable_rules)
-              AND (q.natural_key = x.transaction_id
-                   OR (q.natural_key IS NULL AND q.rule_code = 'MISSING_TRANSACTION_ID'))
-        ), 'DETECTED', 'MISSED') AS outcome
-FROM v_label_expectations AS x;
+              AND q.natural_key   = x.transaction_id
+           ) THEN 'DETECTED'
+      WHEN ARRAY_CONTAINS('MISSING_TRANSACTION_ID'::VARIANT, x.acceptable_rules)
+           AND x.label_ordinal <= u.found THEN 'DETECTED'
+      ELSE 'MISSED'
+    END AS outcome
+FROM v_label_expectations AS x
+CROSS JOIN unkeyable AS u;
 
 SELECT expected_rule,
        COUNT(*)                             AS labelled,

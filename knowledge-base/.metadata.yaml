@@ -60,10 +60,10 @@ layers:
       raw_client_b_payments: 21
   silver:
     status: complete
-    validation: sql/02_silver/05_validate_rules.sql   # 49/49 rule coverage
+    validation: sql/02_silver/05_validate_rules.sql   # 55/55 rule coverage, both clients
     tables:
       transactions_clean: 46
-      transaction_items_clean: 39
+      transaction_items_clean: 41
       customers_clean: 43
       products_clean: 37
       orders_clean: 40
@@ -71,13 +71,13 @@ layers:
       dq_quarantine: 131
   gold:
     status: complete
-    validation: sql/03_gold/03_validate_canonical.sql # 24 invariants, all passing
+    validation: sql/03_gold/03_validate_canonical.sql # 28 invariants, all passing
     tables:
       dim_customer: 43
       dim_product: 37
       fact_order: 40
       fact_transaction: 46
-      fact_order_item: 39
+      fact_order_item: 41
       fact_payment: 57
 
 parsed_volumes:            # validated in Snowflake, not yet materialised
@@ -108,9 +108,9 @@ pull_requests:
   - number: 8
     title: silver and gold — parsing, data quality, and the canonical model
     scope: [silver, gold, dashboard, docs]
-    review_rounds: 1
-    review_findings: 9
-    review_confirmed: 9
+    review_rounds: 3
+    review_findings: 30
+    review_confirmed: 30
     notable: >
       Found two defects that produced wrong figures without failing, after those
       figures had already been published: line items leaking between copies of a

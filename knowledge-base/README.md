@@ -46,12 +46,12 @@ auto-suspend), schemas `bronze` / `silver` / `gold`, all owned by the
 | Layer | State |
 |---|---|
 | **Bronze** | 1701 text lines from the 8 unparseable files + 148 master rows. 14 invariants asserted, all passing. |
-| **Silver** | 57 transactions parsed → 46 clean; 58 line items → 39 clean; 131 quality findings quarantined. |
-| **Gold** | 46 transactions, 39 line items, 43 customers, 37 products, 40 orders, 57 payments. 24 invariants asserted, all passing. |
+| **Silver** | 57 transactions parsed → 46 clean; 58 line items → 41 clean; 131 quality findings quarantined. |
+| **Gold** | 46 transactions, 41 line items, 43 customers, 37 products, 40 orders, 57 payments. 28 invariants asserted, all passing. |
 
-**Rule coverage against the provider's own labels: 49/49.** Every ground-truth
-label classified — 39 mapped to a rule, 7 schema variation by design, 0
-unclassified, reconciling to the 46 transactions.
+**Rule coverage against the provider's own labels: 55/55**, across both clients —
+Client A's XML comments and Client B's JSON `//` comments alike. Every label
+classified: 45 mapped to a rule, 7 schema variation by design, 0 unclassified.
 
 ### Figures worth knowing
 
@@ -61,11 +61,17 @@ never corrected:
 
 | Client | Transactions | Payment ≠ lines | Total absolute variance |
 |---|---|---|---|
-| Client A | 37 | 16 | 872.18 |
-| Client B | 9 | 2 | 203.93 |
+| Client A | 37 | 9 | 694.76 |
+| Client B | 9 | 1 | 53.94 |
 
-An earlier version of these figures (9 / 694.76) was wrong: line items leaked
-between copies of a duplicated transaction, inventing variance. See the traps
+Plus 7 transactions whose variance is **not comparable**, because lines this
+pipeline rejected were never summed — reported separately so the metric does not
+overstate how inconsistent the source is.
+
+These figures were wrong twice before settling here, both times because a join
+fabricated variance rather than measuring it: line items leaking between copies
+of a duplicated transaction, and a deduplication tiebreaker that kept the empty
+copy of C-TXN-3001 over the one carrying its only line. Both are in the traps
 below.
 
 ---
