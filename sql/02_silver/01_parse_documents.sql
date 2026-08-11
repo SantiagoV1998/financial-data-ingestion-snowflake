@@ -48,7 +48,11 @@ WITH fragment_lines AS (
     FROM   bronze.raw_text_lines
     WHERE  source_file ILIKE '%ClientA_Transactions%'
       AND  NOT REGEXP_LIKE(line_text, '^\\s*-{3,}.*OF FILE.*$')     -- exporter banners
-      AND  NOT REGEXP_LIKE(TRIM(line_text), '^</?SalesData.*>$')    -- unbalanced roots
+      -- Anchored on the tag boundary. `.*>` would also match a line that merely
+      -- STARTS with the root tag, so a re-delivery emitting
+      -- <SalesData …><Transaction>… on one line would silently delete real
+      -- content — caught only by the hardcoded expected count in 05.
+      AND  NOT REGEXP_LIKE(TRIM(line_text), '^</?SalesData[^>]*>$')
 ),
 document AS (
     SELECT PARSE_XML(

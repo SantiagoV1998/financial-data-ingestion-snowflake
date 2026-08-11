@@ -202,7 +202,6 @@ LATERAL (
                AND (CONTAINS(g.label, 'duplicate customer')
                     OR CONTAINS(g.label, 'duplicate order id')
                     OR CONTAINS(g.label, 'duplicate transaction id')))
-      AND NOT (m.phrase = 'duplicate' AND CONTAINS(g.label, 'duplicate transaction id'))
 ) AS e;
 
 /* ---------------------------------------------------------------------------
@@ -219,9 +218,14 @@ WITH unkeyable AS (
     -- row records the id it does not have. Counting them lets the nth such label
     -- pair with the nth such finding, so three labels against one finding report
     -- one detection rather than three.
-    SELECT COUNT(*) AS found
+    --
+    -- Grouped per source_system, because label_ordinal is partitioned that way.
+    -- An unscoped total let one client's finding satisfy another client's label,
+    -- which would hold the headline at 100% while a real gap existed.
+    SELECT source_system, COUNT(*) AS found
     FROM   dq_quarantine
     WHERE  rule_code = 'MISSING_TRANSACTION_ID'
+    GROUP  BY source_system
 )
 SELECT
     x.transaction_id,
@@ -235,11 +239,12 @@ SELECT
               AND q.natural_key   = x.transaction_id
            ) THEN 'DETECTED'
       WHEN ARRAY_CONTAINS('MISSING_TRANSACTION_ID'::VARIANT, x.acceptable_rules)
-           AND x.label_ordinal <= u.found THEN 'DETECTED'
+           AND x.label_ordinal <= COALESCE(u.found, 0) THEN 'DETECTED'
       ELSE 'MISSED'
     END AS outcome
-FROM v_label_expectations AS x
-CROSS JOIN unkeyable AS u;
+FROM      v_label_expectations AS x
+LEFT JOIN unkeyable AS u
+       ON x.source_system = u.source_system;
 
 SELECT expected_rule,
        COUNT(*)                             AS labelled,
@@ -274,7 +279,9 @@ CREATE OR REPLACE VIEW v_label_classification AS
 SELECT g.transaction_id, g.label,
        CASE
          WHEN EXISTS (SELECT 1 FROM v_label_expectations AS e
-                      WHERE e.transaction_id = g.transaction_id AND e.label = g.label)
+                      WHERE e.source_system  = g.source_system
+                        AND e.transaction_id = g.transaction_id
+                        AND e.label          = g.label)
               THEN 'MAPPED_TO_RULE'
          WHEN CONTAINS(g.label, 'extra nested') OR CONTAINS(g.label, 'invalid fields')
               THEN 'SCHEMA_VARIATION_BY_DESIGN'

@@ -199,7 +199,7 @@ WHERE d.distinct_txns > 1;
 -- Same customer appearing under several transactions is normal; the provider's
 -- label "duplicate customer" points at something narrower — the customer master
 -- carrying the same id twice, so any join against it multiplies. This rule
--- exists because the ground-truth comparison in 05 showed six labelled
+-- exists because the ground-truth comparison in 05 showed four labelled
 -- anomalies with no rule behind them.
 INSERT INTO dq_quarantine
     (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)

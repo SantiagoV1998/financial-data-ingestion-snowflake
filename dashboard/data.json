@@ -44,22 +44,16 @@
         "FINDINGS": 6
     },
     {
-        "RULE_CODE": "MISSING_ORDER_DATE",
-        "SEVERITY": "WARN",
-        "ENTITY": "transaction",
-        "FINDINGS": 5
-    },
-    {
         "RULE_CODE": "MISSING_SKU",
         "SEVERITY": "REJECT",
         "ENTITY": "transaction_item",
         "FINDINGS": 5
     },
     {
-        "RULE_CODE": "MISSING_EMAIL",
+        "RULE_CODE": "MISSING_ORDER_DATE",
         "SEVERITY": "WARN",
         "ENTITY": "transaction",
-        "FINDINGS": 4
+        "FINDINGS": 5
     },
     {
         "RULE_CODE": "DUPLICATE_ORDER_ID",
@@ -68,10 +62,10 @@
         "FINDINGS": 4
     },
     {
-        "RULE_CODE": "MISSING_CUSTOMER_NAME",
+        "RULE_CODE": "MISSING_EMAIL",
         "SEVERITY": "WARN",
         "ENTITY": "transaction",
-        "FINDINGS": 3
+        "FINDINGS": 4
     },
     {
         "RULE_CODE": "INVALID_EMAIL",
@@ -80,10 +74,10 @@
         "FINDINGS": 3
     },
     {
-        "RULE_CODE": "MISSING_ORDER_ID",
-        "SEVERITY": "REJECT",
+        "RULE_CODE": "MISSING_CUSTOMER_NAME",
+        "SEVERITY": "WARN",
         "ENTITY": "transaction",
-        "FINDINGS": 2
+        "FINDINGS": 3
     },
     {
         "RULE_CODE": "NEGATIVE_UNIT_PRICE",
@@ -98,15 +92,21 @@
         "FINDINGS": 2
     },
     {
-        "RULE_CODE": "MISSING_PAYMENT_AMOUNT",
-        "SEVERITY": "WARN",
+        "RULE_CODE": "MISSING_ORDER_ID",
+        "SEVERITY": "REJECT",
         "ENTITY": "transaction",
-        "FINDINGS": 1
+        "FINDINGS": 2
     },
     {
         "RULE_CODE": "MISSING_PAYMENT_METHOD",
         "SEVERITY": "WARN",
         "ENTITY": "transaction",
+        "FINDINGS": 1
+    },
+    {
+        "RULE_CODE": "MISSING_QUANTITY",
+        "SEVERITY": "REJECT",
+        "ENTITY": "transaction_item",
         "FINDINGS": 1
     },
     {
@@ -122,23 +122,13 @@
         "FINDINGS": 1
     },
     {
-        "RULE_CODE": "MISSING_QUANTITY",
-        "SEVERITY": "REJECT",
-        "ENTITY": "transaction_item",
+        "RULE_CODE": "MISSING_PAYMENT_AMOUNT",
+        "SEVERITY": "WARN",
+        "ENTITY": "transaction",
         "FINDINGS": 1
     }
 ],"by_client":
 [
-    {
-        "SOURCE_SYSTEM": "CLIENT_A",
-        "SEVERITY": "REJECT",
-        "FINDINGS": 12
-    },
-    {
-        "SOURCE_SYSTEM": "CLIENT_B",
-        "SEVERITY": "WARN",
-        "FINDINGS": 9
-    },
     {
         "SOURCE_SYSTEM": "CLIENT_B",
         "SEVERITY": "REJECT",
@@ -148,6 +138,16 @@
         "SOURCE_SYSTEM": "CLIENT_A",
         "SEVERITY": "WARN",
         "FINDINGS": 109
+    },
+    {
+        "SOURCE_SYSTEM": "CLIENT_A",
+        "SEVERITY": "REJECT",
+        "FINDINGS": 12
+    },
+    {
+        "SOURCE_SYSTEM": "CLIENT_B",
+        "SEVERITY": "WARN",
+        "FINDINGS": 9
     }
 ],"coverage":
 [
@@ -162,17 +162,17 @@
         "DETECTED": 8
     },
     {
-        "EXPECTED_RULE": "DUPLICATE_CUSTOMER",
-        "LABELLED": 4,
-        "DETECTED": 4
-    },
-    {
         "EXPECTED_RULE": "NEGATIVE_PAYMENT_AMOUNT",
         "LABELLED": 4,
         "DETECTED": 4
     },
     {
         "EXPECTED_RULE": "MISSING_ORDER_DATE",
+        "LABELLED": 4,
+        "DETECTED": 4
+    },
+    {
+        "EXPECTED_RULE": "DUPLICATE_CUSTOMER",
         "LABELLED": 4,
         "DETECTED": 4
     },
@@ -192,17 +192,7 @@
         "DETECTED": 3
     },
     {
-        "EXPECTED_RULE": "DUPLICATE_ORDER_ID",
-        "LABELLED": 2,
-        "DETECTED": 2
-    },
-    {
         "EXPECTED_RULE": "MISSING_CUSTOMER_NAME",
-        "LABELLED": 2,
-        "DETECTED": 2
-    },
-    {
-        "EXPECTED_RULE": "NEGATIVE_UNIT_PRICE",
         "LABELLED": 2,
         "DETECTED": 2
     },
@@ -212,19 +202,14 @@
         "DETECTED": 2
     },
     {
-        "EXPECTED_RULE": "MISSING_PAYMENT_AMOUNT",
-        "LABELLED": 1,
-        "DETECTED": 1
+        "EXPECTED_RULE": "NEGATIVE_UNIT_PRICE",
+        "LABELLED": 2,
+        "DETECTED": 2
     },
     {
-        "EXPECTED_RULE": "ORPHAN_SKU or MISSING_SKU",
-        "LABELLED": 1,
-        "DETECTED": 1
-    },
-    {
-        "EXPECTED_RULE": "MISSING_CUSTOMER_ID",
-        "LABELLED": 1,
-        "DETECTED": 1
+        "EXPECTED_RULE": "DUPLICATE_ORDER_ID",
+        "LABELLED": 2,
+        "DETECTED": 2
     },
     {
         "EXPECTED_RULE": "MISSING_PAYMENT_METHOD",
@@ -232,7 +217,7 @@
         "DETECTED": 1
     },
     {
-        "EXPECTED_RULE": "MISSING_TRANSACTION_ID",
+        "EXPECTED_RULE": "MISSING_PAYMENT_AMOUNT",
         "LABELLED": 1,
         "DETECTED": 1
     },
@@ -242,12 +227,27 @@
         "DETECTED": 1
     },
     {
+        "EXPECTED_RULE": "MISSING_CUSTOMER_ID",
+        "LABELLED": 1,
+        "DETECTED": 1
+    },
+    {
         "EXPECTED_RULE": "ORPHAN_CUSTOMER or MISSING_CUSTOMER_ID",
         "LABELLED": 1,
         "DETECTED": 1
     },
     {
+        "EXPECTED_RULE": "MISSING_TRANSACTION_ID",
+        "LABELLED": 1,
+        "DETECTED": 1
+    },
+    {
         "EXPECTED_RULE": "MISSING_DESCRIPTION",
+        "LABELLED": 1,
+        "DETECTED": 1
+    },
+    {
+        "EXPECTED_RULE": "ORPHAN_SKU or MISSING_SKU",
         "LABELLED": 1,
         "DETECTED": 1
     }
@@ -264,18 +264,18 @@
 ],"variance":
 [
     {
-        "SOURCE_SYSTEM": "CLIENT_A",
-        "TXNS": 37,
-        "WITH_VARIANCE": 9,
-        "TOTAL_ABS_VARIANCE": "694.76",
-        "NOT_COMPARABLE": 7
-    },
-    {
         "SOURCE_SYSTEM": "CLIENT_B",
         "TXNS": 9,
         "WITH_VARIANCE": 1,
         "TOTAL_ABS_VARIANCE": "53.94",
         "NOT_COMPARABLE": 0
+    },
+    {
+        "SOURCE_SYSTEM": "CLIENT_A",
+        "TXNS": 37,
+        "WITH_VARIANCE": 9,
+        "TOTAL_ABS_VARIANCE": "694.76",
+        "NOT_COMPARABLE": 7
     }
 ],"client_rows":
 [
@@ -355,13 +355,33 @@
         "RECORDS": 5
     },
     {
-        "ENTITY": "orders",
-        "SOURCE_ANNOTATION": "duplicate customer",
+        "ENTITY": "products",
+        "SOURCE_ANNOTATION": "duplicate",
         "RECORDS": 2
     },
     {
         "ENTITY": "orders",
         "SOURCE_ANNOTATION": "duplicate",
+        "RECORDS": 2
+    },
+    {
+        "ENTITY": "customers",
+        "SOURCE_ANNOTATION": "invalid email",
+        "RECORDS": 2
+    },
+    {
+        "ENTITY": "orders",
+        "SOURCE_ANNOTATION": "duplicate customer",
+        "RECORDS": 2
+    },
+    {
+        "ENTITY": "customers",
+        "SOURCE_ANNOTATION": "duplicate",
+        "RECORDS": 2
+    },
+    {
+        "ENTITY": "orders",
+        "SOURCE_ANNOTATION": "invalid customer",
         "RECORDS": 2
     },
     {
@@ -375,28 +395,13 @@
         "RECORDS": 2
     },
     {
-        "ENTITY": "orders",
-        "SOURCE_ANNOTATION": "invalid customer",
-        "RECORDS": 2
+        "ENTITY": "customers",
+        "SOURCE_ANNOTATION": "null-heavy row",
+        "RECORDS": 1
     },
     {
         "ENTITY": "customers",
-        "SOURCE_ANNOTATION": "invalid email",
-        "RECORDS": 2
-    },
-    {
-        "ENTITY": "products",
-        "SOURCE_ANNOTATION": "duplicate",
-        "RECORDS": 2
-    },
-    {
-        "ENTITY": "customers",
-        "SOURCE_ANNOTATION": "duplicate",
-        "RECORDS": 2
-    },
-    {
-        "ENTITY": "customers",
-        "SOURCE_ANNOTATION": "null-heavy anomaly row",
+        "SOURCE_ANNOTATION": "missing email",
         "RECORDS": 1
     },
     {
@@ -405,28 +410,23 @@
         "RECORDS": 1
     },
     {
-        "ENTITY": "customers",
-        "SOURCE_ANNOTATION": "invalid email + missing name",
-        "RECORDS": 1
-    },
-    {
         "ENTITY": "payments",
         "SOURCE_ANNOTATION": "negative",
         "RECORDS": 1
     },
     {
+        "ENTITY": "customers",
+        "SOURCE_ANNOTATION": "invalid email + missing name",
+        "RECORDS": 1
+    },
+    {
+        "ENTITY": "customers",
+        "SOURCE_ANNOTATION": "null-heavy anomaly row",
+        "RECORDS": 1
+    },
+    {
         "ENTITY": "payments",
         "SOURCE_ANNOTATION": "duplicate",
-        "RECORDS": 1
-    },
-    {
-        "ENTITY": "customers",
-        "SOURCE_ANNOTATION": "null-heavy row",
-        "RECORDS": 1
-    },
-    {
-        "ENTITY": "customers",
-        "SOURCE_ANNOTATION": "missing email",
         "RECORDS": 1
     }
 ]}

@@ -69,7 +69,9 @@ done
 head_ "3 · Counts match the delivered files, not the pipeline's opinion"
 xml_txn=$(grep -h -o '<Transaction>' data/client_a/ClientA_Transactions_*.* | wc -l | tr -d ' ')
 xml_item=$(grep -h -o '<Item>' data/client_a/ClientA_Transactions_*.* | wc -l | tr -d ' ')
-json_sku=$(grep -c '"sku"' data/client_b/transactions.json | tr -d ' ')
+# grep -o, not -c: -c counts LINES, so two items on one line would make this
+# "independent" check silently agree with an undercounting parser.
+json_sku=$(grep -o '"sku"' data/client_b/transactions.json | wc -l | tr -d ' ')
 expect "Client A transactions (grep: $xml_txn)" "$xml_txn" \
        "SELECT COUNT(*) FROM silver.parsed_client_a_transactions"
 expect "Client A line items (grep: $xml_item)" "$xml_item" \
@@ -97,8 +99,11 @@ ROWS
 head_ "4 · Assertions the pipeline makes about itself"
 b=$(snow sql -c "$CONN" -f sql/01_bronze/05_validate_bronze.sql 2>&1 | grep -c '| PASS')
 [ "$b" -ge 14 ] && ok "bronze: $b invariants pass" || bad "bronze: only $b pass"
-g=$(snow sql -c "$CONN" -f sql/03_gold/03_validate_canonical.sql 2>&1 | grep -c '| PASS')
-gf=$(snow sql -c "$CONN" -f sql/03_gold/03_validate_canonical.sql 2>&1 | grep -c '| FAIL')
+# Captured ONCE. Running it twice and grepping each run separately reported a
+# pass count and a fail count from two different executions.
+gout=$(snow sql -c "$CONN" -f sql/03_gold/03_validate_canonical.sql 2>&1)
+g=$(printf '%s' "$gout" | grep -c '| PASS')
+gf=$(printf '%s' "$gout" | grep -c '| FAIL')
 [ "$gf" = "0" ] && ok "gold: $g invariants pass, 0 fail" || bad "gold: $gf FAILING"
 expect "unclassified ground-truth labels" "0" \
        "SELECT COUNT(*) FROM silver.v_label_classification WHERE classification='UNCLASSIFIED'"
@@ -124,8 +129,18 @@ expect "Client B orders with an invented channel" "0" \
        "SELECT COUNT(*) FROM gold.fact_order WHERE source_system='CLIENT_B' AND channel IS NOT NULL"
 expect "tiers ranked without keeping the original" "0" \
        "SELECT COUNT(*) FROM gold.dim_customer WHERE tier_rank IS NOT NULL AND tier_raw IS NULL"
+# Restricted to surviving copies on BOTH sides. fact_transaction only counts
+# rejected lines belonging to a transaction that survived, so comparing against
+# every REJECT row in quarantine compares two different populations — it passes
+# today only because no discarded copy happens to carry a rejected line.
 expect "rejected_line_count vs distinct rejected lines" \
-       "$(qv "SELECT COUNT(DISTINCT natural_key||'|'||document_position||'|'||line_number) FROM silver.dq_quarantine WHERE entity='transaction_item' AND severity='REJECT'")" \
+       "$(qv "SELECT COUNT(DISTINCT q.natural_key||'|'||q.document_position||'|'||q.line_number)
+              FROM   silver.dq_quarantine AS q
+              WHERE  q.entity = 'transaction_item' AND q.severity = 'REJECT'
+                AND  EXISTS (SELECT 1 FROM silver.transactions_clean AS t
+                             WHERE t.source_system     = q.source_system
+                               AND t.transaction_id    = q.natural_key
+                               AND t.document_position = q.document_position)")" \
        "SELECT SUM(rejected_line_count) FROM gold.fact_transaction"
 
 head_ "7 · Documentation matches the warehouse"
@@ -141,9 +156,26 @@ check_doc README.md "$cov / $cov"            "$cov/$cov coverage"
 check_doc README.md "\*\*$findings\*\*"      "$findings findings"
 check_doc knowledge-base/README.md "$inv invariants" "$inv invariants"
 check_doc knowledge-base/README.md "$cov/$cov"       "$cov/$cov coverage"
-grep -q "872.18" knowledge-base/README.md docs/anomaly-handling.md README.md 2>/dev/null \
-    && bad "superseded variance figure 872.18 still published" \
-    || ok "no superseded variance figures published"
+# anomaly-handling.md is a named deliverable and was the one document the gate
+# did not read — which is where a stale invariant count survived.
+check_doc docs/anomaly-handling.md "to $inv"         "$inv invariants"
+check_doc docs/anomaly-handling.md "$findings total" "$findings findings"
+# The published variance must be the warehouse's current value, and any other
+# figure may appear ONLY inside the history table that explains it. Banning the
+# old number outright was wrong: recording how a figure changed, and why, is the
+# point of the anomaly notes — the earlier check could not tell "published as
+# current" from "documented as superseded".
+var_a=$(qv "SELECT TO_VARCHAR(ROUND(SUM(IFF(variance_is_comparable, ABS(COALESCE(amount_variance,0)), 0)),2)) FROM gold.fact_transaction WHERE source_system='CLIENT_A'")
+grep -q "$var_a" docs/anomaly-handling.md \
+    && ok "anomaly notes publish the current variance ($var_a)" \
+    || bad "anomaly notes do NOT publish the current variance ($var_a)"
+# Any variance-shaped number outside the history table must be the current one.
+stray=$(awk '/^\| First published/,/^\| \*\*Current\*\*/ {next} /[0-9]+\.[0-9]{2}/ {print}' \
+        docs/anomaly-handling.md | grep -oE '[0-9]+\.[0-9]{2}' \
+        | grep -vE "^($var_a|53\.94|149\.99|97\.48|91\.00|6\.48)$" | head -3)
+[ -z "$stray" ] \
+    && ok "no stray variance figures outside the history table" \
+    || bad "unexplained figures outside the history table: $(echo "$stray" | tr '\n' ' ')"
 
 head_ "8 · The dashboard can be rebuilt from the repository"
 python3 -c "import json; json.load(open('dashboard/data.json'))" 2>/dev/null \

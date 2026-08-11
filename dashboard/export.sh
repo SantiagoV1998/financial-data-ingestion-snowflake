@@ -18,7 +18,11 @@ set -euo pipefail
 
 CONN="${1:-${SNOWFLAKE_CONNECTION:-nuaav}}"
 OUT="$(cd "$(dirname "$0")" && pwd)/data.json"
-TMP="$(mktemp)"
+# Same directory as the target, so `mv` is a rename within one filesystem and
+# therefore actually atomic. A bare mktemp lands in $TMPDIR — on macOS a
+# different volume — where mv degrades to copy-then-unlink and an interrupt
+# leaves exactly the truncated file this was written to prevent.
+TMP="$(mktemp "$(dirname "$OUT")/.data.json.XXXXXX")"
 trap 'rm -f "$TMP"' EXIT
 
 q() {

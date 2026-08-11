@@ -37,13 +37,14 @@ for r in rows("by_client"):
 variance = {r["SOURCE_SYSTEM"]: r for r in rows("variance")}
 client_txns = {r["SOURCE_SYSTEM"]: r["TRANSACTIONS"] for r in rows("client_rows")}
 
-# Every figure comes from data.json. Nothing is a literal here: hardcoded
-# numbers went stale beside freshly exported ones with no signal that they had,
-# on a page whose own text promises the opposite.
+# Every figure comes from data.json. No number is written here — not in the bar
+# values, not in the tiles, and not in the row captions, which is where three
+# literals survived a previous pass under a comment claiming otherwise. A
+# re-delivery must change every number on the page or none of them.
 STAGE_LABELS = {
-    "transactions_parsed": ("Silver · transactions parsed", "46 from XML fragments + 11 from JSON"),
+    "transactions_parsed": ("Silver · transactions parsed", "XML fragments plus JSON"),
     "transactions_clean": ("Silver · transactions clean", "After deduplication and REJECT rules"),
-    "items_parsed": ("Silver · line items parsed", "48 from XML + 10 from JSON"),
+    "items_parsed": ("Silver · line items parsed", "XML plus JSON"),
     "items_clean": ("Silver · line items clean", "Belonging to the surviving copy of each transaction"),
     "customers_clean": ("Silver · customers", ""),
     "products_clean": ("Silver · products", ""),
@@ -270,7 +271,7 @@ HTML = f"""<title>Financial Data Ingestion — Pipeline Results</title>
 <h2>What happened to the records</h2>
 <p class="note">
   Bronze lands bytes; silver parses, types and deduplicates; gold conforms. The drop
-  from 57 to 46 transactions is deduplication plus REJECT-severity rows — held in
+  between parsed and clean is deduplication plus REJECT-severity rows — held in
   quarantine with their payload, never deleted.
 </p>
 <div class="scroll">

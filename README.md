@@ -76,7 +76,7 @@ recoverable as **ground truth** — from the XML comments and from the JSON's `/
 comments alike. Every label is classified and the totals reconcile: 45 mapped to
 a rule, 7 schema variation handled by design, **0 unclassified**.
 
-The comparison found a real gap: six transactions labelled `duplicate customer`
+The comparison found a real gap: four transactions labelled `duplicate customer`
 with no rule behind them. That rule now exists.
 
 ---

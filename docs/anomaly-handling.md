@@ -114,15 +114,17 @@ so nothing is left out of the denominator.
 
 ### What the comparison found
 
-**A real gap.** Six transactions labelled `duplicate customer` had no rule behind
-them, because I had not written one. `DUPLICATE_CUSTOMER` exists as a direct
-result and fires on 8 rows.
+**A real gap.** Four transactions labelled `duplicate customer` had no rule
+behind them, because I had not written one. `DUPLICATE_CUSTOMER` exists as a
+direct result and fires on 8 rows — more than the labels, because the rule also
+catches customers the provider did not annotate.
 
 **Two defects in the measurement, not in the rules** — worth recording because
 both looked like coverage gaps:
 
-- Matching the bare word `duplicate` routed `duplicate customer` and
-  `duplicate order id` to `DUPLICATE_TRANSACTION_ID`, reporting six false misses.
+- Matching the bare word `duplicate` routed `duplicate customer` (4) and
+  `duplicate order id` (2) to `DUPLICATE_TRANSACTION_ID`, reporting six false
+  misses.
   The phrase list is now ordered most-specific-first.
 - A transaction with no id cannot be matched on `natural_key` — the quarantine row
   records the id it does not have. The rule had fired correctly; the join could
@@ -261,6 +263,18 @@ Nothing detected it: there was no `ORPHAN_ORDER` rule and no
 `fact_transaction_order_resolves` check — while the validation script's own header
 said "what must never happen is a key that points at nothing".
 
-Both are now asserted. The canonical validation went from 20 invariants to 24, and
-the corrected variance figures are the ones in the table above — the earlier
-694.76 was inflated by the phantom lines.
+Both are now asserted. The canonical validation grew from 20 invariants to 28 as
+each defect was closed.
+
+The variance figures moved twice before settling, and the history matters more
+than the final number:
+
+| | Client A | Cause |
+|---|---|---|
+| First published | 9 txns · 694.76 | Correct by coincidence — phantom lines inflated it while rejected lines (NULL) deflated it |
+| After the join fix | 16 txns · 872.18 | Phantom lines gone, but variance still conflated source disagreement with lines the pipeline itself rejected |
+| **Current** | **9 txns · 694.76** | Neither distortion. 7 further transactions are reported separately as *not comparable*, because lines were rejected |
+
+The first and last figures match, which is exactly the kind of coincidence that
+makes a number look verified when it is not. It is the same value for a
+different reason.
