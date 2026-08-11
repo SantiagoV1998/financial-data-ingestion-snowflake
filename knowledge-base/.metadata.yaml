@@ -60,7 +60,7 @@ layers:
       raw_client_b_payments: 21
   silver:
     status: complete
-    validation: sql/02_silver/05_validate_rules.sql   # 55/55 rule coverage, both clients
+    validation: sql/02_silver/05_validate_rules.sql   # 83/83 rule coverage, transactions + master
     tables:
       transactions_clean: 46
       transaction_items_clean: 43
@@ -68,10 +68,10 @@ layers:
       products_clean: 37
       orders_clean: 40
       payments_clean: 20
-      dq_quarantine: 131
+      dq_quarantine: 170
   gold:
     status: complete
-    validation: sql/03_gold/03_validate_canonical.sql # 29 invariants, all passing
+    validation: sql/03_gold/03_validate_canonical.sql # 32 invariants, all passing
     tables:
       dim_customer: 43
       dim_product: 37

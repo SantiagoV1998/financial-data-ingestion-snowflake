@@ -436,6 +436,11 @@ SELECT source_system, 'customer', customer_id, file_row_number,
        'Customer id repeats; this copy at row ' || file_row_number || ' is discarded',
        'WARN', raw_payload
 FROM   v_all_customers
+-- Mirrors 06's WHERE customer_id IS NOT NULL, not just its tiebreaker. Snowflake
+-- partitions all NULL keys together, so without this two key-less rows would be
+-- recorded as one MISSING_* each PLUS one duplicate — 3 findings for 2 discarded
+-- rows — and v_master_reconciliation would raise on a delivery it only describes.
+WHERE  customer_id IS NOT NULL
 QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, customer_id
                            ORDER BY file_row_number DESC) > 1;
 
@@ -446,6 +451,11 @@ SELECT source_system, 'product', sku, file_row_number,
        'SKU repeats in the product master; this copy at row ' || file_row_number || ' is discarded',
        'WARN', raw_payload
 FROM   v_all_products
+-- Mirrors 06's WHERE sku IS NOT NULL, not just its tiebreaker. Snowflake
+-- partitions all NULL keys together, so without this two key-less rows would be
+-- recorded as one MISSING_* each PLUS one duplicate — 3 findings for 2 discarded
+-- rows — and v_master_reconciliation would raise on a delivery it only describes.
+WHERE  sku IS NOT NULL
 QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, sku
                            ORDER BY file_row_number DESC) > 1;
 
@@ -456,6 +466,11 @@ SELECT source_system, 'order', order_id, file_row_number,
        'Order id repeats in the order master; this copy at row ' || file_row_number || ' is discarded',
        'WARN', raw_payload
 FROM   v_all_master_orders
+-- Mirrors 06's WHERE order_id IS NOT NULL, not just its tiebreaker. Snowflake
+-- partitions all NULL keys together, so without this two key-less rows would be
+-- recorded as one MISSING_* each PLUS one duplicate — 3 findings for 2 discarded
+-- rows — and v_master_reconciliation would raise on a delivery it only describes.
+WHERE  order_id IS NOT NULL
 QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, order_id
                            ORDER BY file_row_number DESC) > 1;
 
@@ -466,6 +481,11 @@ SELECT source_system, 'payment', payment_id, file_row_number,
        'Payment id repeats; this copy at row ' || file_row_number || ' is discarded',
        'WARN', raw_payload
 FROM   v_all_master_payments
+-- Mirrors 06's WHERE payment_id IS NOT NULL, not just its tiebreaker. Snowflake
+-- partitions all NULL keys together, so without this two key-less rows would be
+-- recorded as one MISSING_* each PLUS one duplicate — 3 findings for 2 discarded
+-- rows — and v_master_reconciliation would raise on a delivery it only describes.
+WHERE  payment_id IS NOT NULL
 QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, payment_id
                            ORDER BY file_row_number DESC) > 1;
 

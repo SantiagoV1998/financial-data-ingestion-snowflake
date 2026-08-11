@@ -209,7 +209,13 @@ WITH li AS (SELECT source_system, transaction_key,
                   -- "true today" is what MISSING_UNIT_PRICE was too. Counted
                   -- rather than assumed, so a mixed-currency transaction makes
                   -- its variance non-comparable instead of quietly wrong.
-                  COUNT(DISTINCT currency)  AS currency_count
+                  -- COUNT(DISTINCT ...) ignores NULLs, so one USD line beside
+                  -- one whose currency the cascade could not resolve counted as
+                  -- 1, and all-NULL counted as 0 — both "comparable". An unknown
+                  -- currency is not evidence of a shared one, so a line missing
+                  -- it counts against uniformity.
+                  COUNT(DISTINCT currency)
+                    + MAX(IFF(currency IS NULL, 1, 0))  AS currency_count
            FROM   fact_order_item
            GROUP  BY source_system, transaction_key
 ),
@@ -259,6 +265,11 @@ SELECT
      AND t.payment_amount IS NOT NULL
      AND COALESCE(li.currency_count, 1) <= 1)                        AS variance_is_comparable,
     COALESCE(t.payment_currency, li.currency)                        AS currency,
+    -- Scoped to transaction entities. Master findings now share this table and
+    -- carry document_position = file_row_number, whose range (2-25) overlaps the
+    -- transactions' (1-46); only the id prefixes differing keeps a customer WARN
+    -- from flagging an unrelated transaction. The rj CTE above already scopes
+    -- by entity for exactly this reason.
     EXISTS(SELECT 1 FROM silver.dq_quarantine AS q
             -- Scoped to THIS copy. Without document_position a warning raised
             -- against a discarded copy flags the surviving one — the same
@@ -271,7 +282,9 @@ SELECT
               -- hid 30 of the 118 WARN findings — ORPHAN_SKU, NEGATIVE_QUANTITY,
               -- MISSING_DESCRIPTION — so a consumer filtering for clean
               -- transactions got ones with negative-quantity lines and orphan
-              -- SKUs, marked as carrying no warnings.
+              -- SKUs, marked as carrying no warnings. Both transaction
+              -- entities, and only those.
+              AND q.entity            IN ('transaction', 'transaction_item')
               AND q.severity          = 'WARN')                      AS has_quality_warning
 FROM      silver.transactions_clean AS t
 LEFT JOIN li

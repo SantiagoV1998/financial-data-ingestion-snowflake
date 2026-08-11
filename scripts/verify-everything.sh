@@ -45,7 +45,17 @@ except Exception: print('ERR')")
 # Asserts a query returns an expected value.
 expect() {  # expect <label> <expected> <sql>
     local got; got="$(qv "$3")"
-    if [ "$got" = "$2" ]; then ok "$1 = $got"; else bad "$1 → expected $2, got $got"; fi
+    # ERR is qv's failure marker, not a value. One check passes its EXPECTED side
+    # through qv too, so an unreachable warehouse made both sides 'ERR' and the
+    # comparison succeeded — the same "green when it did not run" failure this
+    # script gates the invariant reports against.
+    if [ "$got" = "ERR" ] || [ "$2" = "ERR" ]; then
+        bad "$1 → query failed (expected '$2', got '$got')"
+    elif [ "$got" = "$2" ]; then
+        ok "$1 = $got"
+    else
+        bad "$1 → expected $2, got $got"
+    fi
 }
 
 head_ "1 · Source files are exactly as delivered"
@@ -196,24 +206,50 @@ noncomp=$(qv "SELECT COUNT(*) FROM gold.fact_transaction WHERE variance_is_compa
 check_doc docs/anomaly-handling.md   "\\*\\*$noncomp transactions whose variance" "$noncomp not comparable"
 check_doc docs/anomaly-handling.md   "$noncomp further transactions"                "$noncomp not comparable (history table)"
 check_doc knowledge-base/README.md   "Plus $noncomp transactions"                   "$noncomp not comparable"
+# The header said "170 total" while the rule tables below it summed to 131: the
+# 18 master rules were never written down. check_doc matched the header string
+# and passed. Every rule the warehouse actually fires must appear in the notes.
+undocumented=""
+for rule in $(snow sql -c "$CONN" --format json -q \
+        "SELECT DISTINCT rule_code FROM silver.dq_quarantine ORDER BY rule_code" 2>/dev/null \
+        | python3 -c "import json,sys
+try: print(' '.join(r['RULE_CODE'] for r in json.load(sys.stdin)))
+except Exception: pass"); do
+    grep -q "\`$rule\`" docs/anomaly-handling.md || undocumented="$undocumented $rule"
+done
+if [ -n "$undocumented" ]; then
+    bad "rules firing but absent from the anomaly notes:$undocumented"
+elif [ -z "$(snow sql -c "$CONN" --format json -q "SELECT 1 AS x" 2>/dev/null)" ]; then
+    bad "could not list rules to check against the anomaly notes"
+else
+    ok "every firing rule appears in the anomaly notes"
+fi
 # The published variance must be the warehouse's current value, and any other
 # figure may appear ONLY inside the history table that explains it. The allowed
 # list below holds figures used to ILLUSTRATE a specific case in the prose —
 # TXN-1001's 97.48/6.48/91.00, C-TXN-3001's 149.99, TXN-1011's 9.99, TXN-1026's
-# 19.99. Adding a worked example means adding its numbers here, which is the
+# 19.99, and the 0.00 list price ZERO_LIST_PRICE fires on. Adding a worked example means adding its numbers here, which is the
 # intended friction: an unexplained figure in a deliverable should cost
 # something. Banning the
 # old number outright was wrong: recording how a figure changed, and why, is the
 # point of the anomaly notes — the earlier check could not tell "published as
 # current" from "documented as superseded".
 var_a=$(qv "SELECT TO_VARCHAR(ROUND(SUM(IFF(variance_is_comparable, ABS(COALESCE(amount_variance,0)), 0)),2)) FROM gold.fact_transaction WHERE source_system='CLIENT_A'")
+# Derived, not hardcoded. 53.94 sat in the allowlist below as a literal, but it
+# is Client B's CURRENT published variance, not an illustrative historical one —
+# so if it changed, the docs would keep the stale figure, the allowlist would
+# keep blessing it, and the correct new number would be reported as stray.
+var_b=$(qv "SELECT TO_VARCHAR(ROUND(SUM(IFF(variance_is_comparable, ABS(COALESCE(amount_variance,0)), 0)),2)) FROM gold.fact_transaction WHERE source_system='CLIENT_B'")
+grep -q "$var_b" docs/anomaly-handling.md \
+    && ok "anomaly notes publish Client B's current variance ($var_b)" \
+    || bad "anomaly notes do NOT publish Client B's current variance ($var_b)"
 grep -q "$var_a" docs/anomaly-handling.md \
     && ok "anomaly notes publish the current variance ($var_a)" \
     || bad "anomaly notes do NOT publish the current variance ($var_a)"
 # Any variance-shaped number outside the history table must be the current one.
 stray=$(awk '/^\| First published/,/^\| \*\*Current\*\*/ {next} /[0-9]+\.[0-9]{2}/ {print}' \
         docs/anomaly-handling.md | grep -oE '[0-9]+\.[0-9]{2}' \
-        | grep -vE "^($var_a|53\.94|149\.99|97\.48|91\.00|6\.48|9\.99|19\.99)$" | head -3)
+        | grep -vE "^($var_a|$var_b|149\.99|97\.48|91\.00|6\.48|9\.99|19\.99|0\.00)$" | head -3)
 [ -z "$stray" ] \
     && ok "no stray variance figures outside the history table" \
     || bad "unexplained figures outside the history table: $(echo "$stray" | tr '\n' ' ')"

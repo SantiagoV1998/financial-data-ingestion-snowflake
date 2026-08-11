@@ -10,11 +10,23 @@ This is presentation only. Every figure it shows was produced by the SQL
 pipeline; nothing is computed here beyond arranging what the queries returned.
 """
 
+import html
 import json
 import pathlib
 
 HERE = pathlib.Path(__file__).parent
 DATA = json.loads((HERE / "data.json").read_text())
+
+
+def esc(value: str) -> str:
+    """Escape a warehouse value for HTML interpolation.
+
+    EXPECTED_RULE for master labels is built from a CSV field's free text, so an
+    annotation containing < or & would otherwise corrupt the published page.
+    Rule codes and severities are controlled, but escaping only the field that
+    happens to be untrusted today is how the next one gets missed.
+    """
+    return html.escape(str(value))
 
 
 def rows(key):
@@ -89,9 +101,9 @@ funnel_html = "".join(
 )
 
 rules_html = "".join(
-    f"""<tr tabindex="0" title="{r['ENTITY']} · {r['SEVERITY']}">
-      <th scope="row"><code>{r['RULE_CODE']}</code></th>
-      <td class="sev"><span class="dot dot-{r['SEVERITY'].lower()}"></span>{r['SEVERITY']}</td>
+    f"""<tr tabindex="0" title="{esc(r['ENTITY'])} · {esc(r['SEVERITY'])}">
+      <th scope="row"><code>{esc(r['RULE_CODE'])}</code></th>
+      <td class="sev"><span class="dot dot-{esc(r['SEVERITY'].lower())}"></span>{esc(r['SEVERITY'])}</td>
       <td class="num">{r['FINDINGS']}</td>
       <td class="track">{bar(r['FINDINGS'], max_rule,
                              '--status-critical' if r['SEVERITY'] == 'REJECT' else '--status-warning')}</td>
@@ -101,7 +113,7 @@ rules_html = "".join(
 
 cov_html = "".join(
     f"""<tr tabindex="0">
-      <th scope="row"><code>{r['EXPECTED_RULE']}</code></th>
+      <th scope="row"><code>{esc(r['EXPECTED_RULE'])}</code></th>
       <td class="num">{r['LABELLED']}</td>
       <td class="num">{r['DETECTED']}</td>
       <td class="track">{bar(r['DETECTED'], max(x['LABELLED'] for x in cov_rows), '--status-good')}</td>

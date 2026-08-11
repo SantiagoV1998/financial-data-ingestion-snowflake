@@ -76,6 +76,40 @@ set, and the client decides.
 | `ORPHAN_SKU` | WARN | 20 | SKU has no product master record |
 | `MISSING_UNIT_PRICE` | REJECT | 0 | Latent here — a NULL price makes `line_amount` NULL, which `SUM()` skips silently |
 
+### Master level
+
+The master path had no rules at all until it was audited, and deduplication was
+discarding rows in silence — 8 of them in this delivery. These are the rules
+that make each discard a recorded fact.
+
+| Rule | Severity | Found | Why this severity |
+|---|---|---|---|
+| `DUPLICATE_CUSTOMER_ID` | WARN | 2 | The row is discarded by deduplication; the finding is what makes that visible |
+| `MISSING_CUSTOMER_NAME` | WARN | 3 | Loads; the id carries the identity |
+| `MISSING_MASTER_EMAIL` | WARN | 5 | Loads; absence is a fact about the delivery |
+| `INVALID_EMAIL` | WARN | 4 | Loads flagged — `email_is_valid` records it rather than nulling the value |
+| `DUPLICATE_SKU` | WARN | 3 | As above; 3 product rows discarded |
+| `NEGATIVE_LIST_PRICE` | WARN | 2 | A master price, unlike a line, has no refund reading — but it is the client's call |
+| `ZERO_LIST_PRICE` | WARN | 2 | Legal, yet a 0.00 "Unknown Product" values every line referencing it at nothing |
+| `DUPLICATE_MASTER_ORDER_ID` | WARN | 2 | As above; 2 order rows discarded |
+| `MISSING_MASTER_ORDER_DATE` | WARN | 5 | Loads without a date rather than being dropped |
+| `ORPHAN_MASTER_CUSTOMER` | WARN | 2 | Order references a customer with no master record |
+| `ORDER_REFERENCES_DUPLICATED_CUSTOMER` | WARN | 6 | Which copy the order means is the pipeline's choice, not the source's |
+| `DUPLICATE_PAYMENT_ID` | WARN | 1 | As above; 1 payment row discarded |
+| `NEGATIVE_PAYMENT_AMOUNT` | WARN | 2 | **May be a refund** — flagged, not dropped |
+| `MISSING_CUSTOMER_ID` | REJECT | 0 | Latent — nothing to key the record on |
+| `MISSING_MASTER_SKU` | REJECT | 0 | Latent — as above |
+| `MISSING_MASTER_ORDER_ID` | REJECT | 0 | Latent — as above |
+| `MISSING_PAYMENT_ID` | REJECT | 0 | Latent — as above |
+| `MISSING_LIST_PRICE` | WARN | 0 | Latent — a NULL master price cannot be a fallback for a line missing one |
+
+**93 transaction + 38 line-item + 39 master = 170.** The four `MISSING_*` REJECT
+rules find nothing in this delivery: every master row carries its business key,
+verified across all seven staging tables. They exist because deduplication's
+`WHERE <id> IS NOT NULL` would otherwise discard such a row without a trace.
+
+---
+
 Two duplicate rules exist rather than one because they are **different defects**:
 a repeated transaction id is a delivery artefact, while the same order billed
 under two transaction ids is a business problem. Collapsing them into one
@@ -98,7 +132,9 @@ CUST-A-0033,Julia,Chen,jchen@@example..com,SILVER,Web,true <-- invalid email
 Bronze keeps every line verbatim, so those labels are recoverable — and that turns
 "I wrote some quality rules" into something measurable.
 
-**Result: 55 of 55 expectations detected**, across both clients.
+**Result: 83 of 83 expectations detected** — 55 from the XML and JSON
+transaction comments, 28 from the annotations delivered inline in the CSVs, over
+one denominator.
 
 Every ground-truth label is classified, and the totals reconcile:
 
@@ -144,11 +180,15 @@ six fields for seven columns, so its annotation ends up in `signup_source`. Ever
 text field is cleaned, not just the last.
 
 28 annotations across the seven CSVs, stripped from the values and **retained** in
-a `source_annotation` column. They belong to master records rather than to
-transactions, so they cannot be matched against transaction-level rules the way
-the XML comments are; `silver.v_master_annotations` surfaces them as their own
-report — the provider's account of what is wrong with the master data, beside
-what the pipeline found in it.
+a `source_annotation` column. `silver.v_master_annotations` surfaces them, and
+`silver.v_master_rule_coverage` maps each one to the rule expected to fire for
+it — so they count toward the published coverage rather than sitting beside it.
+
+An earlier version of this document argued they *could not* be matched, because
+they describe master records rather than transactions. That was a description of
+a gap, not a reason for one: the master path simply had no rules. It has 18 now,
+and the annotations are ground truth for them exactly as the XML comments are for
+transactions.
 
 ---
 
