@@ -269,6 +269,7 @@ python3 -c "import json; json.load(open('dashboard/data.json'))" 2>/dev/null \
 # developer's tree holding regenerated artefacts. The claim was that verifying
 # stays read-only; without the trap it was only true on the happy path.
 dash_tmp=$(mktemp -d)
+dash_tmp_page=$(mktemp)
 restore_dashboard() {
     [ -f "$dash_tmp/data.json" ]  && cp "$dash_tmp/data.json"  dashboard/data.json
     [ -f "$dash_tmp/index.html" ] && cp "$dash_tmp/index.html" dashboard/index.html
@@ -290,6 +291,23 @@ else
     bad "dashboard could not be regenerated"
 fi
 restore_dashboard
+
+head_ "8b · El link publicado sirve el dashboard, no el README"
+# The README's headline link pointed at the Pages root, which has no index.html
+# and therefore serves the Jekyll-rendered README — the link led back to itself.
+# Checking the URL returns 200 is not enough: the wrong page also returns 200.
+# This asserts the served page is the DASHBOARD, by a marker only it carries.
+dash_url=$(grep -oE 'https://[a-z0-9.-]+/[a-z0-9./-]*dashboard/' README.md | head -1)
+if [ -z "$dash_url" ]; then
+    bad "README carries no dashboard link"
+elif ! curl -sf --max-time 20 "$dash_url" -o "$dash_tmp_page" 2>/dev/null; then
+    bad "the published dashboard link does not respond: $dash_url"
+elif grep -q "Pipeline Results" "$dash_tmp_page" && ! grep -q "four deliverables" "$dash_tmp_page"; then
+    ok "the published link serves the dashboard"
+else
+    bad "the published link responds but does NOT serve the dashboard: $dash_url"
+fi
+rm -f "$dash_tmp_page"
 
 head_ "9 · Lint"
 sqlfluff lint sql/ >/dev/null 2>&1 && ok "sqlfluff clean" || bad "sqlfluff violations"
