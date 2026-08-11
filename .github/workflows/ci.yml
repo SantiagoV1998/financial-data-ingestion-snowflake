@@ -57,13 +57,15 @@ jobs:
 
       # The central claim of this project is that the source files are ingested
       # byte-identical to delivery and every repair happens in SQL inside
-      # Snowflake. These three steps make that claim enforceable rather than
+      # Snowflake. These steps make that claim enforceable rather than
       # asserted, and they are deliberately layered — each covers a way the
       # others can be defeated.
       #
-      #   1. checksums    the 15 files match the manifest
-      #   2. coverage     the manifest lists exactly the files present
-      #   3. base diff    the files themselves are unchanged since the base
+      #   0. pinned digest  the manifest itself is what this workflow expects
+      #   1. checksums      the 15 files match the manifest
+      #   2. coverage       the manifest lists exactly the files present
+      #   2b. invariants    deliveries visible, credentials not committed
+      #   3. base diff      the files themselves are unchanged since the base
       #
       # Steps 1 and 2 cannot stand alone: the manifest ships inside the change,
       # so editing a source file and regenerating the manifest satisfies both.
@@ -115,94 +117,11 @@ jobs:
                <(sed 's/^[0-9a-f]\{64\}  //' data/CHECKSUMS.sha256 | sort) \
             || { echo "::error::data/ and CHECKSUMS.sha256 list different files"; exit 1; }
 
-      # Steps 1 and 2 both derive from the git index, and so does the manifest,
-      # so a delivered file that `git add` silently skips is invisible to all of
-      # them — it never reaches Snowflake while CI reports green.
-      #
-      # This checks the .gitignore *properties*, not the presence of files. An
-      # earlier version ran `git ls-files --others --ignored -- data/`, which
-      # cannot work in CI: it lists untracked working-tree files, and a fresh
-      # checkout has only tracked ones, so it passed unconditionally while the
-      # blind spot stayed open.
-      #
-      # Both directions are tested, because the two failure modes are opposite
-      # and fixing one has already caused the other:
-      #   · a delivered format must never be ignorable — otherwise the next
-      #     delivery vanishes silently (gitignore does not affect already-tracked
-      #     files, so the damage only appears on the following delivery)
-      #   · a credential must always stay ignored — a blanket `!data/**` once
-      #     made .env, rsa_key.p8 and secrets.pem stageable in this public repo
-      #
-      # Real tracked paths are probed, not just synthetic names. A bare `*.xml`
-      # would be caught by the synthetic probes too — but a directory-scoped
-      # pattern such as `data/client_a/*.xml` shadows all seven
-      # ClientA_Transactions fragments while every probe under
-      # data/probe_client/ stays green. Only the real names catch that.
-      - name: 2b · .gitignore protects deliveries and still blocks secrets
-        run: |
-          set -uo pipefail
-          failed=0
-
-          # check-ignore: 0 = ignored, 1 = not ignored, 128 = error.
-          # 128 must not be read as "not ignored" — this is a fail-closed gate.
-          probe() {
-            git check-ignore --no-index -q "$1"
-            case "$?" in
-              0) echo ignored ;;
-              1) echo visible ;;
-              *) echo error ;;
-            esac
-          }
-
-          # Every tracked delivery, by its real name, must stay visible.
-          while IFS= read -r f; do
-            case "$(probe "$f")" in
-              ignored) echo "::error::.gitignore hides the delivered file $f — the next delivery of it would be invisible to every other check."; failed=1 ;;
-              error)   echo "::error::git check-ignore failed on $f"; failed=1 ;;
-            esac
-          done < <(git -c core.quotePath=false ls-files data | grep -vx 'data/CHECKSUMS\.sha256')
-
-          # Hypothetical deliveries in each delivered format must be stageable.
-          # Nested paths included: git does not descend into an excluded
-          # directory, so an unanchored pattern like `tmp/` swallows a delivery
-          # unpacked into data/client_c/tmp/ and no `!data/**/*.ext` can rescue
-          # it. Flat probes never exercise that.
-          # One nested probe per anchored directory pattern. Covering only two of
-          # the four left a hole: un-anchoring /.idea/ or /.vscode/ — a very
-          # likely future edit — would swallow a delivery again while every
-          # existing probe stayed green.
-          for probe_file in Orders.csv Orders.CSV Transactions.xml transactions.json Transactions.txt \
-                            tmp/Orders.csv .snowflake/Orders.csv .vscode/Orders.csv \
-                            .idea/Orders.csv sub/dir/Orders.csv \
-                            PaymentTokens.csv card_tokens.csv TokenizedCards.csv \
-                            password_reset_events.csv tokens/Orders.csv \
-                            tokenized/Orders.csv secrets_report.csv; do
-            case "$(probe "data/probe_client/$probe_file")" in
-              ignored) echo "::error::.gitignore would hide a delivered data/probe_client/$probe_file"; failed=1 ;;
-              error)   echo "::error::git check-ignore failed on data/probe_client/$probe_file"; failed=1 ;;
-            esac
-          done
-
-          # Credentials must stay ignored even carrying a data extension.
-          # Mixed case throughout: gitignore has no case-insensitive flag and the
-          # runner has core.ignorecase=false, so a lowercase-only guard leaves
-          # Credentials.csv and CREDENTIALS.CSV committable — and Client B
-          # already delivers Customer.CSV in uppercase.
-          for secret in credentials.csv Credentials.csv CREDENTIALS.CSV \
-                        api_secret.json API_SECRET.json app_secrets.json \
-                        db_password.txt auth_token.json \
-                        .env .env.local .ENV \
-                        signing.key signing.KEY secrets.pem Secrets.PEM \
-                        rsa_key.p8 rsa_key.csv rsa_key.txt RSA_KEY.txt \
-                        private_key.txt Private_Key.txt; do
-            case "$(probe "data/probe_client/$secret")" in
-              visible) echo "::error::.gitignore would allow committing data/probe_client/$secret to a public repository."; failed=1 ;;
-              error)   echo "::error::git check-ignore failed on data/probe_client/$secret"; failed=1 ;;
-            esac
-          done
-
-          [ "$failed" -eq 0 ] || exit 1
-          echo "Deliveries stay visible; credentials stay ignored."
+      # Delegated to a script so CI and the local pre-flight run the same
+      # checks. Duplicating them in YAML is how they drifted apart before: the
+      # documented local command and the CI step tested different things.
+      - name: 2b · data/ invariants
+        run: ./scripts/check-data-integrity.sh
 
       # Runs on pushes too. Restricting this to pull_request would leave a
       # direct push to main verified only by steps 0, 1, 2 and 2b — all of which

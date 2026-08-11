@@ -1,12 +1,19 @@
-# Credentials — never commit
+# Credentials — never commit.
+#
+# rsa_key* and credentials* are anchored to the repository root. Unanchored they
+# also match DIRECTORY names, so data/client_c/credentials/Orders.csv was
+# swallowed whole — git does not descend into an excluded directory, and no
+# re-inclusion can rescue what is inside one. Under data/, credential-shaped
+# names are caught loudly by scripts/check-data-integrity.sh instead; everywhere
+# else the extension rules below still apply at any depth.
 *.p8
 *.pem
 *.key
-rsa_key*
 config.toml
 .env
 .env.*
-credentials*
+/rsa_key*
+/credentials*
 
 # Snowflake CLI local state. Both filenames are listed explicitly because the
 # directory rule is anchored to the repo root (so it cannot swallow a delivery),
@@ -28,84 +35,45 @@ Thumbs.db
 /tmp/
 *.tmp
 
-# Delivered data formats under data/ are never ignored.
+# ── data/ ──────────────────────────────────────────────────────────────────────
 #
-# WHY THIS BLOCK EXISTS. Both the manifest and the coverage check derive from the
-# git index, so a delivered file that `git add` silently skips is invisible to
-# every integrity gate: it never reaches Snowflake while CI reports green and the
-# documentation asserts the delivery is committed byte-identical.
+# Nothing under data/ is ignored by NAME. Only extensions that are never a
+# delivered record are ignored here.
 #
-# WHAT IT COVERS, EXACTLY. Only the five formats actually delivered. A bundle
-# containing config.toml, an *.tmp export, .DS_Store or Thumbs.db is still
-# ignored, and that is deliberate — those names are far more likely to be an
-# exporter artefact or a secret than payload, and re-including them to be
-# thorough is how the blanket `!data/**` leaked credentials in the first place.
-# If a delivery genuinely carries data under one of those names, it must be
-# handled explicitly rather than swept in by a broad rule.
+# WHY. Both the manifest and the coverage check derive from the git index, so a
+# delivered file that `git add` silently skips is invisible to every integrity
+# gate: it never reaches Snowflake while CI reports green and the documentation
+# asserts the delivery is byte-identical.
 #
-# WHY IT IS SCOPED. An earlier version used a blanket `!data/**`, which silently
-# re-enabled committing credentials: .env, rsa_key.p8, secrets.pem and
-# credentials.csv under data/ all became stageable in a PUBLIC repository, and
-# the documented re-delivery step is a blanket `git add data`. Closing a
-# visibility gap must not open a disclosure one. Only the five delivered formats
-# are re-included.
+# Guarding that with name patterns cannot work, because both mistakes are silent.
+# Too broad and a delivery vanishes: `*token*` swallowed PaymentTokens.csv and,
+# worse, everything under data/tokens/ — git does not descend into an excluded
+# directory, so no re-inclusion can rescue what is inside one. Too narrow and
+# secrets.json stayed committable while the comment promised full coverage. Nine
+# review rounds moved that line back and forth, each fix breaking the other side.
+#
+# So the mechanism changed. Names are not guessed at here at all. A credential
+# carrying a data extension is caught by scripts/check-data-integrity.sh, which
+# FAILS THE BUILD loudly and lets a human decide. Failing loudly beats ignoring
+# silently: a false positive costs one conversation, a false negative costs a
+# lost delivery or a published secret.
 !data/**/*.csv
 !data/**/*.CSV
 !data/**/*.xml
 !data/**/*.json
 !data/**/*.txt
 
-# ...but never a credential, even carrying a data extension. Last match wins, so
-# these come after the re-inclusions above. A file named credentials.csv is a
-# secret first and a CSV second; if a delivery genuinely contains one, it must be
-# renamed or handled out of band, not committed here.
-#
-# The character classes are not decoration. gitignore has no case-insensitive
-# flag, and the CI runner has core.ignorecase=false, so a plain `credentials*`
-# leaves Credentials.csv and CREDENTIALS.CSV committable. That is the plausible
-# case here rather than a theoretical one: Client B already delivers
-# Customer.CSV in uppercase, which is why *.CSV had to be re-included at all.
-#
-# Every pattern names a recognisable credential FORM — a known extension, or a
-# word in a fixed position — never a bare substring. Note gitignore uses fnmatch,
-# not bash extglob: `?(s)` is not a thing here, so the singular and plural forms
-# are separate lines. An earlier version used
-# `*secret*`, `*password*` and `*token*`, which in a payments repository is
-# actively dangerous: `token` is business vocabulary, and PaymentTokens.csv,
-# card_tokens.csv and TokenizedCards.csv were all swallowed. Worse, those
-# patterns match DIRECTORY names, so `data/tokens/Orders.csv` and
-# `data/tokenized_client/Orders.csv` disappeared entirely — git does not descend
-# into an excluded directory, so no re-inclusion could rescue them, and
-# `git add data` skipped them without a word while every gate stayed green.
-# That is the exact failure this whole block exists to prevent, recreated on the
-# other side of the ledger. Losing a delivery silently is worse than reviewing an
-# ambiguously named file by hand.
-data/**/[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]*
-data/**/.[Ee][Nn][Vv]*
+# Extensions that are never delivered data. Safe to ignore by extension, since
+# no payload can hide behind one.
 data/**/*.[Kk][Ee][Yy]
 data/**/*.[Pp][Ee][Mm]
 data/**/*.[Pp]8
-data/**/[Rr][Ss][Aa]_[Kk][Ee][Yy]*
-data/**/*[Pp][Rr][Ii][Vv][Aa][Tt][Ee]_[Kk][Ee][Yy]*
-data/**/*_[Ss][Ee][Cc][Rr][Ee][Tt].*
-data/**/*_[Ss][Ee][Cc][Rr][Ee][Tt]s.*
-data/**/*_[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd].*
-data/**/*_[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]s.*
-data/**/*_[Tt][Oo][Kk][Ee][Nn].[Jj][Ss][Oo][Nn]
+data/**/.[Ee][Nn][Vv]*
 
-# The directory patterns above (/tmp/, /.snowflake/, /.vscode/, /.idea/) are
-# anchored to the repository root on purpose. Git does not descend into an
-# excluded directory, so no `!data/**/*.ext` negation can rescue a file inside
-# one: an unanchored `tmp/` silently swallowed data/client_c/tmp/Orders.csv, and
-# neither the manifest nor any gate would have noticed, since both derive from
-# the index. Anchoring means those patterns cannot match inside data/ at all.
+# The directory patterns earlier in this file (/tmp/, /.snowflake/, /.vscode/,
+# /.idea/) are anchored to the repository root on purpose: unanchored, `tmp/`
+# swallowed data/client_c/tmp/Orders.csv and nothing noticed.
 #
-# CI step 2b probes the OUTCOMES of this block — delivered formats visible,
-# credentials ignored, nested directories not swallowing deliveries — so
-# shadowing it with a later pattern fails the build.
-#
-# It cannot detect deleting the `!data/**/*.ext` lines themselves. Those
-# negations are a no-op against today's pattern set: nothing above them matches
-# those five extensions, so removing them changes no outcome and 2b stays green.
-# They are insurance against a future pattern, and a maintainer tidying them as
-# redundant would remove that insurance with a clean build. Leave them.
+# scripts/check-data-integrity.sh asserts every property above — deliveries
+# visible, non-data extensions ignored, no credential-shaped name tracked — and
+# runs identically in CI and locally.

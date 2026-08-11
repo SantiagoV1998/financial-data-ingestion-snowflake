@@ -35,10 +35,10 @@ an RSA key pair at `~/.snowflake/keys/` (Snowflake blocks password-only
 programmatic sign-in). Neither the config nor the key is in this repo, and `.gitignore` keeps it that
 way — including under `data/`, where the re-inclusion of delivered formats is
 deliberately scoped to `*.csv/*.CSV/*.xml/*.json/*.txt` and credential names are
-re-excluded after it. CI step 2b tests both directions — deliveries visible, credentials ignored — so
-shadowing either protection fails the build. It cannot detect deleting the
-re-inclusion lines themselves, which are a no-op against today's patterns; see
-the note in `.gitignore`.
+re-excluded after it. Under `data/` nothing is ignored by name — a delivery must never vanish because
+of what it is called. A credential carrying a data extension is caught by
+`scripts/check-data-integrity.sh`, which fails the build loudly so a human
+decides. See the header of that script for why guessing by filename cannot work.
 
 Target: database `financial_ingestion`, warehouse `wh_ingestion`, schemas
 `bronze` / `silver` / `gold`, role **`ingestion_engineer`**.
@@ -72,9 +72,12 @@ that loads everything.
 ```bash
 sqlfluff lint sql/                      # dialect snowflake, config in .sqlfluff
 shasum -a 256 -c data/CHECKSUMS.sha256  # bytes match the manifest
-diff <(git -c core.quotePath=false ls-files data | grep -vx 'data/CHECKSUMS\.sha256' | sort) \
-     <(sed 's/^[0-9a-f]\{64\}  //' data/CHECKSUMS.sha256 | sort)  # manifest covers every file
+./scripts/check-data-integrity.sh       # 61 invariants over data/
 ```
+
+`check-data-integrity.sh` is the same script CI runs, so it cannot pass locally
+and fail there. It pins `core.ignorecase=false`, because otherwise the mixed-case
+credential guard passes vacuously on macOS — the platform you are on.
 
 CI runs five steps: the manifest's own pinned digest (0), the checksums (1),
 manifest coverage (2), a check that `.gitignore` cannot hide a delivered file
