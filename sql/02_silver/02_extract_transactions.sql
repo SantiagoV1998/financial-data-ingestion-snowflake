@@ -21,8 +21,14 @@
       the 46 transactions here, Items:"$" is a bare XML element, and FLATTEN
       over it iterates that element's CHILDREN (SKU, Quantity, …) rather than
       the items. Flattening naively yields 4 line items out of 48 — silently,
-      with no error. TO_ARRAY normalises both shapes; OUTER => TRUE then keeps
-      transactions that have no items at all, which Client B genuinely has.
+      with no error. TO_ARRAY normalises both shapes.
+
+      OUTER => TRUE is also set on this flatten, but changes nothing for Client
+      A: all 46 transactions carry a non-empty Items node, so no row is dropped
+      with or without it. It is kept for symmetry with Client B — where one
+      transaction does have "items": [] and the flag is genuinely load-bearing —
+      and so a future delivery of an item-less transaction is preserved instead
+      of silently disappearing from the transaction table.
    ========================================================================= */
 
 USE ROLE ingestion_engineer;

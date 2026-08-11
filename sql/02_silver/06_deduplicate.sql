@@ -92,11 +92,15 @@ FROM   v_all_transaction_items AS i
 --
 -- Joining on transaction_id alone let lines from a DISCARDED copy attach to the
 -- surviving one. TXN-1001 is delivered twice: copy 1 has two items, copy 2 has
--- one. Deduplication keeps copy 2, but line 2 existed only in copy 1 and had no
--- competitor to lose to — so it survived, and gold reported a transaction whose
--- lines summed to 6.48 against a stated payment of 97.48. A 91.00 variance
--- invented entirely by the join, in the column whose whole purpose is measuring
--- whether a payment agrees with its own lines.
+-- one. When deduplication kept the LAST copy, line 2 existed only in copy 1 and
+-- had no competitor to lose to, so it survived and attached itself to a copy it
+-- did not belong to — mixing two records into one.
+--
+-- Today the tiebreaker below keeps copy 1 (more lines), and this join keeps its
+-- lines with it. TXN-1001 still reports a 91.00 variance, but now legitimately:
+-- copy 1's own lines sum to 2 x 25.99 - 1 x 45.50 = 6.48 against a stated 97.48.
+-- Same number, different provenance — which is exactly why the position must be
+-- carried rather than inferred from the value looking familiar.
 INNER JOIN   transactions_clean AS t
   ON   i.source_system     = t.source_system
  AND   i.transaction_id    = t.transaction_id

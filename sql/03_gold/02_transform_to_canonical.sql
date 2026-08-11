@@ -71,16 +71,29 @@ SELECT
     -- PLATINUM ones, which sit ABOVE gold, so ordering by rank presented GOLD as
     -- the top tier. Exactly backwards from what this column claims to mean.
     --
-    -- UNKNOWN stays NULL deliberately: it is the absence of a tier, not a tier.
-    -- Rank 1 is each client's own top tier; nothing here equates the two scales.
-    CASE UPPER(tier_raw)
-        WHEN 'PLATINUM' THEN 1   -- Client A
-        WHEN 'GOLD'     THEN 2
-        WHEN 'SILVER'   THEN 3
-        WHEN 'BRONZE'   THEN 4
-        WHEN 'VIP'      THEN 1   -- Client B — same rank, not the same tier
-        WHEN 'REGULAR'  THEN 2
-        WHEN 'NEW'      THEN 3                -- UNKNOWN, and anything not yet delivered
+    -- UNKNOWN stays NULL deliberately: it is the absence of a tier, not a tier,
+    -- and so does any value a future delivery introduces — which is precisely
+    -- what every_delivered_tier_is_ranked then fails on, rather than silently
+    -- ranking it. Rank 1 is each client's own top tier; nothing equates the two.
+    --
+    -- Scoped per source_system, not by value alone. The two scales share no
+    -- vocabulary TODAY, so a flat CASE happens to give the same answer — but it
+    -- would rank a Client B 'GOLD' on Client A's scale the day one arrives, and
+    -- that failure is silent: a plausible number in a column nobody re-checks.
+    CASE source_system
+        WHEN 'CLIENT_A' THEN
+            CASE UPPER(tier_raw)
+                WHEN 'PLATINUM' THEN 1
+                WHEN 'GOLD'     THEN 2
+                WHEN 'SILVER'   THEN 3
+                WHEN 'BRONZE'   THEN 4
+            END
+        WHEN 'CLIENT_B' THEN
+            CASE UPPER(tier_raw)
+                WHEN 'VIP'     THEN 1   -- same RANK as PLATINUM, not the same tier
+                WHEN 'REGULAR' THEN 2
+                WHEN 'NEW'     THEN 3
+            END
     END                                       AS tier_rank,
     signup_source,
     is_active
