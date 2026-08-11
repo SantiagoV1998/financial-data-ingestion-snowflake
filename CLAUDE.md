@@ -32,13 +32,8 @@ snow sql -c nuaav -f sql/01_bronze/04_load_bronze.sql
 
 Connection `nuaav` is defined in `~/.snowflake/config.toml`, authenticating with
 an RSA key pair at `~/.snowflake/keys/` (Snowflake blocks password-only
-programmatic sign-in). Neither the config nor the key is in this repo, and `.gitignore` keeps it that
-way — including under `data/`, where the re-inclusion of delivered formats is
-deliberately scoped to `*.csv/*.CSV/*.xml/*.json/*.txt` and credential names are
-re-excluded after it. Under `data/`, the five delivered formats are re-included at any depth so a
-delivery cannot vanish, and `scripts/check-data-integrity.sh` asserts that —
-including for paths inside directories the ordinary rules exclude, and for files
-sitting on disk that `git add` would skip.
+programmatic sign-in). Neither the config nor the key lives in this repo, and
+`.gitignore` keeps it that way.
 
 Target: database `financial_ingestion`, warehouse `wh_ingestion`, schemas
 `bronze` / `silver` / `gold`, role **`ingestion_engineer`**.
@@ -77,68 +72,35 @@ diff <(git -c core.quotePath=false ls-files data | grep -vx 'data/CHECKSUMS\.sha
 ./scripts/check-data-integrity.sh       # data/ invariants (prints its own count)
 ```
 
-`check-data-integrity.sh` is the same script CI runs, so it cannot pass locally
-and fail there. It pins `core.ignorecase=false`, because otherwise the mixed-case
-credential guard passes vacuously on macOS — the platform you are on.
+CI runs the same five steps: the manifest's pinned digest (0), the checksums
+(1), manifest coverage (2), the `data/` invariants (2b), and a diff of the
+source files against the base (3). Everything except step 3 runs locally —
+step 3 is the only one needing the base ref. `check-data-integrity.sh` is
+literally the script CI invokes, so it cannot pass here and fail there.
 
-CI runs five steps: the manifest's own pinned digest (0), the checksums (1),
-manifest coverage (2), a check that `.gitignore` cannot hide a delivered file
-(2b), and a diff of the source files against the base (3). The commands above mirror steps 1 and 2. Step 0 (compare
-`shasum -a 256 data/CHECKSUMS.sha256` against `EXPECTED` in the workflow) and
-step 2b (pure `git check-ignore`) also run locally with no CI involved — worth
-doing before pushing, since several credential-exposure bugs were caught exactly
-that way. Only step 3 genuinely needs the base ref. The checksum gate enforces the project's central
-claim — that the source files are ingested byte-identical and every repair
-happens in SQL. Without it, someone could quietly "fix" a file and the pipeline
-would pass while the exercise had been sidestepped.
+Run the local four before pushing. Step 2b in particular catches something no CI
+step can: a delivered file sitting on disk that `git add` would skip. It is
+absent from the index, therefore absent from the manifest, the coverage diff and
+the base comparison alike — and absent from a fresh CI checkout too, so CI is
+structurally blind to it.
 
-CI adds what the local commands cannot replicate: it diffs `data/` against the
-base branch. The manifest ships inside the PR, so on its own it
-proves nothing — a PR that edits a source file *and* regenerates the manifest
-satisfies `shasum -c` perfectly. Comparing against the base is what makes the
-claim enforceable, and it means **regenerating the manifest will not get a
-`data/` change past CI**. That is deliberate: in this project the source files
-are never supposed to change.
+**What these gates guarantee.** That the delivered files are ingested exactly as
+received: unchanged bytes, none lost. That is the exercise's central claim, and
+without enforcement someone could quietly "fix" a source file — close the XML
+root, strip the banner — and the pipeline would pass while the exercise had been
+sidestepped.
 
-There is no opt-out flag. The exception is the workflow diff itself, and it is
-self-enforcing: changing a source file forces a new manifest, a new manifest has
-a new digest, and the digest is pinned as `EXPECTED` in
-`.github/workflows/ci.yml`. So a re-delivery cannot avoid touching the workflow —
-and step 3 keys on exactly that, allowing a `data/` change only when the workflow
-changed with it.
+**What they do not.** They do not identify secrets. `.gitignore` carries ordinary
+hygiene rules, and neither it nor the script tries to recognise a credential by
+filename — that approach was removed after it repeatedly either swallowed
+deliveries or missed obvious names; the script header explains why it cannot
+work. Secret detection is GitHub secret scanning with push protection, whose
+scope and limits are recorded in `knowledge-base/DECISIONS.md` D17.
 
-Note what this does **not** guarantee: that anyone read the diff. With a single
-collaborator, GitHub cannot enforce review — see `knowledge-base/DECISIONS.md`
-D16. The exception is narrow by construction, but it is upheld by discipline.
-
-To land a genuine re-delivery, in one PR: replace the files, **`git add data`**,
-regenerate the manifest, and update `EXPECTED`. The `git add` is not optional, and the reason is worse than it sounds. The
-regeneration command reads the *index*, not the working tree:
-
-- A **replaced** file left unstaged produces a manifest that disagrees with the
-  bytes on disk, and CI fails on what looks like corruption. Annoying, but loud.
-- A **brand-new** file left unstaged is absent from the index, so the regenerated
-  manifest is byte-identical to the old one, `EXPECTED` never changes, and all
-  five CI steps pass. The delivery is silently lost with a fully green build.
-
-No CI step can catch the second case — the file does not exist in the checkout.
-Run `git status --ignored` before regenerating — plain `git status` does not
-list ignored files at all, so a swallowed delivery looks like a clean tree.
-
-```bash
-git add data                                    # stage the delivery FIRST —
-                                                # the next command reads the index
-git ls-files -z data | grep -zvx 'data/CHECKSUMS\.sha256' | sort -z \
-  | xargs -0 shasum -a 256 > data/CHECKSUMS.sha256
-git add data/CHECKSUMS.sha256                   # and stage the new manifest
-```
-
-Then update `EXPECTED` in `.github/workflows/ci.yml` to the new digest of the
-manifest — CI pins it, so a manifest change that skips this step fails.
-
-`.sqlfluff` disables a number of rules, each with a written reason. Keep it that
-way: a linter silenced without reasons is worse than no linter, because a green
-check then means nothing.
+Coverage is bounded and worth knowing precisely: the re-inclusions under `data/`
+name the five delivered formats, so a delivery arriving as `Payments.tmp` or
+`config.toml` would still be skipped by `git add`. Step 2b's working-tree check
+catches exactly that, but only when run locally before committing.
 
 ## Conventions
 

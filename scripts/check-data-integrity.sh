@@ -29,20 +29,25 @@ checks=0
 fail() { echo "::error::$1"; echo "  FAIL  $1"; failed=1; }
 pass() { checks=$((checks + 1)); }
 
-# Two ignorecase settings on purpose.
+# ignorecase is pinned to TRUE — the permissive, and here the conservative,
+# direction. On a case-insensitive checkout git ignores strictly more paths
+# (Orders.TMP, CONFIG.TOML, .DS_STORE), so asserting under `false` would certify
+# a path safe that real `git add` silently drops on macOS, the platform the docs
+# send people to. Pinning it at all matters because leaving it to local config
+# makes the same script behave differently here and on the runner.
 #
-# Visibility is asserted under the PERMISSIVE setting (true, the macOS default),
-# because a path that git would drop on a case-insensitive checkout must be
-# reported as at-risk. Asserting under false would certify a path safe that real
-# `git add` silently skips on the platform the docs tell people to use.
-visible_check() { git -c core.ignorecase=true check-ignore --no-index -q "$1"; }
-
+# check-ignore exits 0 = ignored, 1 = not ignored, 128 = error. An error must
+# never read as "not ignored": that is a failure counted as a satisfied
+# invariant, in a script whose entire job is failing closed.
 must_be_visible() {
-    if visible_check "$1"; then
-        fail "$2: $1 is ignored, so a delivery with that path would be invisible to every other check"
-    else
-        pass
-    fi
+    git -c core.ignorecase=true check-ignore --no-index -q "$1"
+    # Captured immediately: inside the case, $? is the status of the case itself.
+    local rc=$?
+    case "$rc" in
+        0) fail "$2: $1 is ignored, so a delivery with that path would be invisible to every other check" ;;
+        1) pass ;;
+        *) fail "git check-ignore errored on $1 (exit $rc) — refusing to treat that as a satisfied invariant" ;;
+    esac
 }
 
 echo "== 1. Every tracked delivery stays visible =="
@@ -84,7 +89,13 @@ echo "== 3. Nothing is sitting in data/ ignored =="
 #
 # In CI this is normally a no-op — a fresh checkout holds only tracked files —
 # but it is the whole point of running this script locally before committing.
-hidden=$(git ls-files --others --ignored --exclude-standard -- data/ 2>/dev/null)
+# stderr is NOT discarded and the exit status is checked. Swallowing a git
+# failure here would leave `hidden` empty and report a pass for the only check
+# that inspects the working tree — the one the script exists for.
+if ! hidden=$(git ls-files --others --ignored --exclude-standard -- data/); then
+    fail "git ls-files failed while scanning for ignored files in data/"
+    hidden=""
+fi
 if [ -n "$hidden" ]; then
     while IFS= read -r f; do
         [ -z "$f" ] && continue

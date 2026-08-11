@@ -297,4 +297,38 @@ honest to say it is enforced by discipline rather than by GitHub.
 approving review. That is a team property, not a configuration trick, and it is
 the only thing that closes it.
 
-**Last updated**: 2026-08-10 · after PR #7, eighth review round
+---
+
+## D17 · Secret detection is GitHub's, not ours
+
+**Decision**: GitHub secret scanning with push protection is enabled on the
+repository. Neither `.gitignore` nor `scripts/check-data-integrity.sh` attempts
+to recognise a credential by filename.
+
+**Verified**, not assumed — the failure D16 was rewritten for:
+
+```
+$ gh api repos/SantiagoV1998/financial-data-ingestion-snowflake \
+    --jq '.security_and_analysis'
+{"secret_scanning": "enabled", "secret_scanning_push_protection": "enabled"}
+```
+
+**Why we stopped doing it ourselves**: eight review rounds went into a filename
+guard, and both failure directions are silent. Too broad and a delivery vanishes
+— `*token*` swallowed `PaymentTokens.csv` and everything under `data/tokens/`,
+with `git add` skipping them wordlessly and all five gates green. Too narrow and
+`API_KEY.csv`, `AUTH_TOKEN.json` and `PRIVATE_KEY.txt` sailed through a guard
+whose comment promised full coverage. There is always another name; the approach
+has no floor.
+
+**What this control actually covers**: credential *material*, recognised by
+content — provider tokens, AWS keys, RSA private keys — with push protection
+rejecting the push before it lands.
+
+**What it does not**: a plain password sitting in a JSON field matches no known
+provider pattern and will not be caught. Nor does any CI step fail if scanning is
+later switched off; that is a repository setting, outside the workflow's reach.
+Both are stated rather than papered over — the value of this entry is knowing the
+edge, not believing the control is total.
+
+**Last updated**: 2026-08-10 · after PR #7, fourteenth review round

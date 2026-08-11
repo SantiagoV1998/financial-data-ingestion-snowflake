@@ -64,7 +64,7 @@ jobs:
       #   0. pinned digest  the manifest itself is what this workflow expects
       #   1. checksums      the 15 files match the manifest
       #   2. coverage       the manifest lists exactly the files present
-      #   2b. invariants    deliveries visible, credentials not committed
+      #   2b. invariants    no delivered file can be silently lost
       #   3. base diff      the files themselves are unchanged since the base
       #
       # Steps 1 and 2 cannot stand alone: the manifest ships inside the change,
