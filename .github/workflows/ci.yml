@@ -111,7 +111,7 @@ jobs:
       # file merely containing that substring would be dropped from both sides.
       - name: 2 · Manifest covers exactly the files present
         run: |
-          diff <(git -c core.quotePath=false ls-files data | grep -vx 'data/CHECKSUMS\\.sha256' | sort) \
+          diff <(git -c core.quotePath=false ls-files data | grep -vx 'data/CHECKSUMS\.sha256' | sort) \
                <(sed 's/^[0-9a-f]\{64\}  //' data/CHECKSUMS.sha256 | sort) \
             || { echo "::error::data/ and CHECKSUMS.sha256 list different files"; exit 1; }
 
