@@ -192,6 +192,70 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, payment_id
                            ORDER BY file_row_number DESC) = 1;
 
 /* ---------------------------------------------------------------------------
+   Master-data reconciliation — every staged row is either kept or accounted for
+   ----------------------------------------------------------------------------
+   The four statements above discard rows two ways: WHERE <id> IS NOT NULL, and
+   QUALIFY ROW_NUMBER() = 1. Both were silent. A row could leave the pipeline
+   with no finding, no payload and nothing comparing the counts — which is how 8
+   discarded master rows went unnoticed while the transaction path was audited
+   line by line.
+
+   This view closes that: staged must equal kept plus the rows quarantine says
+   were discarded. It is a reconciliation, not a count — if 04's duplicate rules
+   ever stop mirroring the tiebreaker used here, the two sides disagree and the
+   script raises instead of quietly losing a row.
+   ------------------------------------------------------------------------ */
+CREATE OR REPLACE VIEW v_master_reconciliation AS
+WITH staged AS (
+    SELECT 'customer' AS entity, COUNT(*) AS n FROM v_all_customers
+    UNION ALL
+    SELECT 'product', COUNT(*) FROM v_all_products
+    UNION ALL
+    SELECT 'order', COUNT(*) FROM v_all_master_orders
+    UNION ALL
+    SELECT 'payment', COUNT(*) FROM v_all_master_payments
+), kept AS (
+    SELECT 'customer' AS entity, COUNT(*) AS n FROM customers_clean
+    UNION ALL
+    SELECT 'product', COUNT(*) FROM products_clean
+    UNION ALL
+    SELECT 'order', COUNT(*) FROM orders_clean
+    UNION ALL
+    SELECT 'payment', COUNT(*) FROM payments_clean
+), accounted AS (
+    SELECT entity, COUNT(*) AS n
+    FROM   dq_quarantine
+    WHERE  entity IN ('customer', 'product', 'order', 'payment')
+      AND  rule_code IN ('DUPLICATE_CUSTOMER_ID', 'DUPLICATE_SKU',
+                         'DUPLICATE_MASTER_ORDER_ID', 'DUPLICATE_PAYMENT_ID',
+                         'MISSING_CUSTOMER_ID', 'MISSING_MASTER_SKU',
+                         'MISSING_MASTER_ORDER_ID', 'MISSING_PAYMENT_ID')
+    GROUP  BY entity
+)
+SELECT s.entity,
+       s.n                            AS staged_rows,
+       k.n                            AS kept_rows,
+       COALESCE(a.n, 0)               AS discarded_and_recorded,
+       s.n - k.n                      AS discarded_actual
+FROM   staged AS s
+INNER JOIN kept AS k ON s.entity = k.entity
+LEFT  JOIN accounted AS a ON s.entity = a.entity;
+
+EXECUTE IMMEDIATE $$
+DECLARE
+    failed INTEGER;
+    master_reconciliation_failed EXCEPTION (-20004, 'Master rows were discarded without being recorded in quarantine');
+BEGIN
+    SELECT COUNT(*) INTO :failed
+    FROM v_master_reconciliation WHERE discarded_actual <> discarded_and_recorded;
+    IF (failed > 0) THEN
+        RAISE master_reconciliation_failed;
+    END IF;
+    RETURN 'Every discarded master row is recorded in quarantine';
+END;
+$$;
+
+/* ---------------------------------------------------------------------------
    Silver output summary
    ------------------------------------------------------------------------ */
 CREATE OR REPLACE VIEW v_silver_summary AS

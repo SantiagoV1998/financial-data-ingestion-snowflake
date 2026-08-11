@@ -32,6 +32,7 @@ CREATE OR REPLACE TABLE dq_quarantine (
     quarantine_id    VARCHAR       DEFAULT UUID_STRING(),
     source_system    VARCHAR       NOT NULL,
     entity           VARCHAR       NOT NULL,  -- transaction | transaction_item
+                                            -- | customer | product | order | payment
     natural_key      VARCHAR,                 -- transaction id where known
     -- Which copy of a duplicated record this finding came from. Without it a
     -- REJECT on one copy cannot be told apart from a REJECT on another, and
@@ -356,6 +357,238 @@ WHERE  i.sku IS NOT NULL
         WHERE p.source_system = i.source_system
           AND p.sku           = i.sku
       );
+
+/* ---------------------------------------------------------------------------
+   Master-data rules
+   ----------------------------------------------------------------------------
+   These did not exist until the master path was audited, and their absence was
+   not a gap in coverage so much as a contradiction of this file's own opening
+   claim. Deduplication in 06 drops a master row with WHERE <id> IS NOT NULL and
+   QUALIFY ROW_NUMBER() = 1; against this delivery that discards 8 rows — 2
+   customers, 3 products, 2 orders, 1 payment — every one of them a duplicate,
+   with no finding, no payload and no invariant. "Nothing is deleted" was true
+   of transactions and false of everything else.
+
+   document_position carries file_row_number here. It plays the same role it
+   plays for transactions — WHICH COPY a finding came from — so a duplicate
+   finding names the row that will be discarded rather than the id in general.
+
+   The rules mirror 06's tiebreaker exactly (file_row_number DESC). If the two
+   ever diverge, the reconciliation assert at the end of 06 fails rather than
+   letting the quarantine describe a decision the pipeline did not make.
+   ------------------------------------------------------------------------ */
+CREATE OR REPLACE VIEW v_all_customers AS
+SELECT source_system, customer_id, file_row_number,
+       NULLIF(TRIM(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')),'') AS customer_name,
+       email, loyalty_tier AS tier_raw, source_annotation,
+       OBJECT_CONSTRUCT('customer_id', customer_id, 'first_name', first_name,
+                        'last_name', last_name, 'email', email,
+                        'loyalty_tier', loyalty_tier, 'source_file', source_file) AS raw_payload
+FROM   stg_client_a_customers
+UNION ALL
+SELECT source_system, customer_id, file_row_number,
+       customer_name, email, segment, source_annotation,
+       OBJECT_CONSTRUCT('customer_id', customer_id, 'customer_name', customer_name,
+                        'email', email, 'segment', segment, 'source_file', source_file)
+FROM   stg_client_b_customers;
+
+CREATE OR REPLACE VIEW v_all_products AS
+SELECT source_system, sku, file_row_number, product_name, unit_price, unit_price_raw,
+       currency, source_annotation,
+       OBJECT_CONSTRUCT('sku', sku, 'product_name', product_name,
+                        'unit_price', unit_price_raw, 'currency', currency,
+                        'source_file', source_file) AS raw_payload
+FROM   stg_client_a_products
+UNION ALL
+SELECT source_system, sku, file_row_number, product_name, unit_price, unit_price_raw,
+       currency, source_annotation,
+       OBJECT_CONSTRUCT('sku', sku, 'product_name', product_name,
+                        'unit_price', unit_price_raw, 'currency', currency,
+                        'source_file', source_file)
+FROM   stg_client_b_products;
+
+CREATE OR REPLACE VIEW v_all_master_orders AS
+SELECT source_system, order_id, file_row_number, customer_id, order_date,
+       order_date_raw, source_annotation,
+       OBJECT_CONSTRUCT('order_id', order_id, 'customer_id', customer_id,
+                        'order_date', order_date_raw, 'source_file', source_file) AS raw_payload
+FROM   stg_client_a_orders
+UNION ALL
+SELECT source_system, order_id, file_row_number, customer_id, order_date,
+       order_date_raw, source_annotation,
+       OBJECT_CONSTRUCT('order_id', order_id, 'customer_id', customer_id,
+                        'order_date', order_date_raw, 'source_file', source_file)
+FROM   stg_client_b_orders;
+
+CREATE OR REPLACE VIEW v_all_master_payments AS
+SELECT source_system, payment_id, file_row_number, order_id, amount, amount_raw,
+       currency, status, source_annotation,
+       OBJECT_CONSTRUCT('payment_id', payment_id, 'order_id', order_id,
+                        'amount', amount_raw, 'status', status,
+                        'source_file', source_file) AS raw_payload
+FROM   stg_client_b_payments;
+
+/* Duplicates — one finding per copy that deduplication will discard --------- */
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'customer', customer_id, file_row_number,
+       'DUPLICATE_CUSTOMER_ID',
+       'Customer id repeats; this copy at row ' || file_row_number || ' is discarded',
+       'WARN', raw_payload
+FROM   v_all_customers
+QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, customer_id
+                           ORDER BY file_row_number DESC) > 1;
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'product', sku, file_row_number,
+       'DUPLICATE_SKU',
+       'SKU repeats in the product master; this copy at row ' || file_row_number || ' is discarded',
+       'WARN', raw_payload
+FROM   v_all_products
+QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, sku
+                           ORDER BY file_row_number DESC) > 1;
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'order', order_id, file_row_number,
+       'DUPLICATE_MASTER_ORDER_ID',
+       'Order id repeats in the order master; this copy at row ' || file_row_number || ' is discarded',
+       'WARN', raw_payload
+FROM   v_all_master_orders
+QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, order_id
+                           ORDER BY file_row_number DESC) > 1;
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'payment', payment_id, file_row_number,
+       'DUPLICATE_PAYMENT_ID',
+       'Payment id repeats; this copy at row ' || file_row_number || ' is discarded',
+       'WARN', raw_payload
+FROM   v_all_master_payments
+QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, payment_id
+                           ORDER BY file_row_number DESC) > 1;
+
+/* Missing business keys — REJECT, because there is nothing to key the record on.
+   This delivery has none; the rules exist because deduplication's
+   WHERE <id> IS NOT NULL would otherwise discard such a row in silence. ----- */
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'customer', NULL, file_row_number,
+       'MISSING_CUSTOMER_ID', 'Customer master row has no customer id', 'REJECT', raw_payload
+FROM   v_all_customers WHERE customer_id IS NULL;
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'product', NULL, file_row_number,
+       'MISSING_MASTER_SKU', 'Product master row has no SKU', 'REJECT', raw_payload
+FROM   v_all_products WHERE sku IS NULL;
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'order', NULL, file_row_number,
+       'MISSING_MASTER_ORDER_ID', 'Order master row has no order id', 'REJECT', raw_payload
+FROM   v_all_master_orders WHERE order_id IS NULL;
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'payment', NULL, file_row_number,
+       'MISSING_PAYMENT_ID', 'Payment row has no payment id', 'REJECT', raw_payload
+FROM   v_all_master_payments WHERE payment_id IS NULL;
+
+/* Questionable values — the record loads, flagged ------------------------- */
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'customer', customer_id, file_row_number,
+       'INVALID_EMAIL', 'Email does not parse as an address: ' || email, 'WARN', raw_payload
+FROM   v_all_customers
+WHERE  email IS NOT NULL
+  AND  NOT REGEXP_LIKE(email, '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$');
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'customer', customer_id, file_row_number,
+       'MISSING_CUSTOMER_NAME', 'Customer master row carries no name', 'WARN', raw_payload
+FROM   v_all_customers WHERE customer_name IS NULL;
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'product', sku, file_row_number,
+       'NEGATIVE_LIST_PRICE',
+       'List price is ' || unit_price || ' — a master price, unlike a line, has no refund reading',
+       'WARN', raw_payload
+FROM   v_all_products WHERE unit_price < 0;
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'product', sku, file_row_number,
+       'MISSING_LIST_PRICE',
+       'List price absent or unparseable: ' || COALESCE(unit_price_raw, '(absent)'),
+       'WARN', raw_payload
+FROM   v_all_products WHERE unit_price IS NULL;
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'payment', payment_id, file_row_number,
+       'NEGATIVE_PAYMENT_AMOUNT',
+       'Payment amount is ' || amount || ' — may be a refund',
+       'WARN', raw_payload
+FROM   v_all_master_payments WHERE amount < 0;
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'customer', customer_id, file_row_number,
+       'MISSING_MASTER_EMAIL', 'Customer master row carries no email', 'WARN', raw_payload
+FROM   v_all_customers WHERE email IS NULL;
+
+/* A list price of exactly 0.00 on a row named 'Unknown Product'. Zero is a
+   legal price, so this is WARN rather than REJECT — but a zero-priced
+   placeholder silently values every line referencing it at nothing. */
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'product', sku, file_row_number,
+       'ZERO_LIST_PRICE',
+       'List price is exactly 0.00 for ' || COALESCE(product_name, '(unnamed)'),
+       'WARN', raw_payload
+FROM   v_all_products WHERE unit_price = 0;
+
+/* NOT EXISTS rather than a join: the customer master carries duplicates, and a
+   join would report the same orphan once per copy. Same reasoning as
+   ORPHAN_SKU above. */
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT o.source_system, 'order', o.order_id, o.file_row_number,
+       'ORPHAN_MASTER_CUSTOMER',
+       'Order references customer ' || o.customer_id || ', which has no master record',
+       'WARN', o.raw_payload
+FROM   v_all_master_orders AS o
+WHERE  o.customer_id IS NOT NULL
+  AND  NOT EXISTS (SELECT 1 FROM v_all_customers AS c
+                   WHERE c.source_system = o.source_system
+                     AND c.customer_id   = o.customer_id);
+
+/* The customer exists but is delivered more than once, so which copy the order
+   refers to is ambiguous until deduplication picks one. Recorded because the
+   choice is the pipeline's, not the source's. */
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT o.source_system, 'order', o.order_id, o.file_row_number,
+       'ORDER_REFERENCES_DUPLICATED_CUSTOMER',
+       'Order references customer ' || o.customer_id || ', which is delivered more than once',
+       'WARN', o.raw_payload
+FROM   v_all_master_orders AS o
+WHERE  o.customer_id IS NOT NULL
+  AND  (SELECT COUNT(*) FROM v_all_customers AS c
+        WHERE c.source_system = o.source_system
+          AND c.customer_id   = o.customer_id) > 1;
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'order', order_id, file_row_number,
+       'MISSING_MASTER_ORDER_DATE',
+       'Order date absent or unparseable: ' || COALESCE(order_date_raw, '(absent)'),
+       'WARN', raw_payload
+FROM   v_all_master_orders WHERE order_date IS NULL;
 
 /* ---------------------------------------------------------------------------
    Summary
