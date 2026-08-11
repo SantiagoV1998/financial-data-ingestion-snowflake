@@ -64,9 +64,11 @@ never corrected:
 | Client A | 37 | 9 | 694.76 |
 | Client B | 9 | 1 | 53.94 |
 
-Plus 7 transactions whose variance is **not comparable**, because lines this
-pipeline rejected were never summed — reported separately so the metric does not
-overstate how inconsistent the source is.
+Plus 6 transactions whose variance is **not comparable** — 5 because lines this
+pipeline rejected were never summed, and TXN-1026 because it states no payment
+amount at all. Reported separately so the metric does not overstate how
+inconsistent the source is: a transaction we could not fully read is a different
+fact from a source that disagrees with itself.
 
 These figures were wrong twice before settling here, both times because a join
 fabricated variance rather than measuring it: line items leaking between copies

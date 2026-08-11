@@ -163,8 +163,12 @@ which is why 7 ground-truth labels are classified as schema variation:
 unselected paths are simply not read during extraction, and the whole payload
 survives in `raw_payload`. Adding a rule would report a defect where none exists.
 
-**Inconsistent nesting across records.** `COALESCE` over the alternative paths,
-rather than a `CASE` cascade per record shape.
+**Inconsistent nesting across records.** Each field is read from one fixed path.
+The delivery turns out not to vary its nesting — `Order`, `Customer`, `Name`,
+`Items` and `Payment` all appear in all 46 transactions — so no fallback is
+exercised. Stated plainly because an earlier version of this document claimed a
+`COALESCE` over alternative paths that does not exist: a re-delivery nesting a
+field differently would yield a silent NULL, not a fallback.
 
 **The seven XML fragments.** File 1 opens `<SalesData>` *and* closes it; file 7
 closes it again without opening it. One opening tag against two closing ones, so
@@ -227,10 +231,12 @@ was paid and what its own line items add up to.
 | Client A | 37 | 9 | 694.76 |
 | Client B | 9 | 1 | 53.94 |
 
-Plus **7 transactions whose variance is not comparable**, because lines this
-pipeline rejected were never summed. Those are reported separately rather than
-folded in: where a line was rejected the gap is partly ours, not the source's,
-and mixing the two would overstate how inconsistent the source actually is.
+Plus **6 transactions whose variance is not comparable** — 5 because lines this
+pipeline rejected were never summed, and TXN-1026 because it states no payment
+amount at all, so there is nothing to compare its readable line against. Those
+are reported separately rather than folded in: where a line was rejected the gap
+is partly ours, not the source's, and mixing the two would overstate how
+inconsistent the source actually is.
 
 It is **measured and left visible, never corrected**. Correcting it would erase
 the finding — and reconciling a payment against its own lines is precisely what a
@@ -273,7 +279,7 @@ than the final number:
 |---|---|---|
 | First published | 9 txns · 694.76 | Correct by coincidence — phantom lines inflated it while rejected lines (NULL) deflated it |
 | After the join fix | 16 txns · 872.18 | Phantom lines gone, but variance still conflated source disagreement with lines the pipeline itself rejected |
-| **Current** | **9 txns · 694.76** | Neither distortion. 7 further transactions are reported separately as *not comparable*, because lines were rejected |
+| **Current** | **9 txns · 694.76** | Neither distortion. 6 further transactions are reported separately as *not comparable* |
 
 The first and last figures match, which is exactly the kind of coincidence that
 makes a number look verified when it is not. It is the same value for a

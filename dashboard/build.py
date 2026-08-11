@@ -125,7 +125,7 @@ def client_block(code, label, series):
         <div><dt>Payments not matching their own lines</dt>
              <dd>{v.get('WITH_VARIANCE', 0)} of {v.get('TXNS', 0)}</dd></div>
         <div><dt>Total absolute variance</dt><dd>{v.get('TOTAL_ABS_VARIANCE', '0')}</dd></div>
-        <div><dt>Not comparable — lines rejected</dt><dd>{v.get('NOT_COMPARABLE', 0)}</dd></div>
+        <div><dt>Not comparable — lines rejected or no payment stated</dt><dd>{v.get('NOT_COMPARABLE', 0)}</dd></div>
       </dl>
     </article>"""
 
