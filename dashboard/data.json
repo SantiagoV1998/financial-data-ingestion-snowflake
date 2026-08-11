@@ -38,16 +38,28 @@
         "FINDINGS": 8
     },
     {
+        "RULE_CODE": "NEGATIVE_PAYMENT_AMOUNT",
+        "SEVERITY": "WARN",
+        "ENTITY": "transaction",
+        "FINDINGS": 6
+    },
+    {
         "RULE_CODE": "ORDER_REFERENCES_DUPLICATED_CUSTOMER",
         "SEVERITY": "WARN",
         "ENTITY": "order",
         "FINDINGS": 6
     },
     {
-        "RULE_CODE": "NEGATIVE_PAYMENT_AMOUNT",
+        "RULE_CODE": "MISSING_MASTER_EMAIL",
         "SEVERITY": "WARN",
-        "ENTITY": "transaction",
-        "FINDINGS": 6
+        "ENTITY": "customer",
+        "FINDINGS": 5
+    },
+    {
+        "RULE_CODE": "MISSING_MASTER_ORDER_DATE",
+        "SEVERITY": "WARN",
+        "ENTITY": "order",
+        "FINDINGS": 5
     },
     {
         "RULE_CODE": "MISSING_ORDER_DATE",
@@ -62,24 +74,6 @@
         "FINDINGS": 5
     },
     {
-        "RULE_CODE": "MISSING_MASTER_ORDER_DATE",
-        "SEVERITY": "WARN",
-        "ENTITY": "order",
-        "FINDINGS": 5
-    },
-    {
-        "RULE_CODE": "MISSING_MASTER_EMAIL",
-        "SEVERITY": "WARN",
-        "ENTITY": "customer",
-        "FINDINGS": 5
-    },
-    {
-        "RULE_CODE": "MISSING_EMAIL",
-        "SEVERITY": "WARN",
-        "ENTITY": "transaction",
-        "FINDINGS": 4
-    },
-    {
         "RULE_CODE": "DUPLICATE_ORDER_ID",
         "SEVERITY": "WARN",
         "ENTITY": "transaction",
@@ -92,10 +86,10 @@
         "FINDINGS": 4
     },
     {
-        "RULE_CODE": "MISSING_CUSTOMER_NAME",
+        "RULE_CODE": "MISSING_EMAIL",
         "SEVERITY": "WARN",
-        "ENTITY": "customer",
-        "FINDINGS": 3
+        "ENTITY": "transaction",
+        "FINDINGS": 4
     },
     {
         "RULE_CODE": "DUPLICATE_SKU",
@@ -112,13 +106,19 @@
     {
         "RULE_CODE": "MISSING_CUSTOMER_NAME",
         "SEVERITY": "WARN",
+        "ENTITY": "customer",
+        "FINDINGS": 3
+    },
+    {
+        "RULE_CODE": "MISSING_CUSTOMER_NAME",
+        "SEVERITY": "WARN",
         "ENTITY": "transaction",
         "FINDINGS": 3
     },
     {
-        "RULE_CODE": "MISSING_ORDER_ID",
-        "SEVERITY": "REJECT",
-        "ENTITY": "transaction",
+        "RULE_CODE": "DUPLICATE_CUSTOMER_ID",
+        "SEVERITY": "WARN",
+        "ENTITY": "customer",
         "FINDINGS": 2
     },
     {
@@ -128,15 +128,9 @@
         "FINDINGS": 2
     },
     {
-        "RULE_CODE": "NEGATIVE_LIST_PRICE",
-        "SEVERITY": "WARN",
-        "ENTITY": "product",
-        "FINDINGS": 2
-    },
-    {
-        "RULE_CODE": "DUPLICATE_CUSTOMER_ID",
-        "SEVERITY": "WARN",
-        "ENTITY": "customer",
+        "RULE_CODE": "MISSING_ORDER_ID",
+        "SEVERITY": "REJECT",
+        "ENTITY": "transaction",
         "FINDINGS": 2
     },
     {
@@ -146,9 +140,9 @@
         "FINDINGS": 2
     },
     {
-        "RULE_CODE": "ORPHAN_MASTER_CUSTOMER",
+        "RULE_CODE": "NEGATIVE_LIST_PRICE",
         "SEVERITY": "WARN",
-        "ENTITY": "order",
+        "ENTITY": "product",
         "FINDINGS": 2
     },
     {
@@ -161,6 +155,12 @@
         "RULE_CODE": "NEGATIVE_UNIT_PRICE",
         "SEVERITY": "WARN",
         "ENTITY": "transaction_item",
+        "FINDINGS": 2
+    },
+    {
+        "RULE_CODE": "ORPHAN_MASTER_CUSTOMER",
+        "SEVERITY": "WARN",
+        "ENTITY": "order",
         "FINDINGS": 2
     },
     {
@@ -188,6 +188,12 @@
         "FINDINGS": 1
     },
     {
+        "RULE_CODE": "MISSING_PAYMENT_AMOUNT",
+        "SEVERITY": "WARN",
+        "ENTITY": "transaction",
+        "FINDINGS": 1
+    },
+    {
         "RULE_CODE": "MISSING_PAYMENT_METHOD",
         "SEVERITY": "WARN",
         "ENTITY": "transaction",
@@ -198,24 +204,13 @@
         "SEVERITY": "REJECT",
         "ENTITY": "transaction_item",
         "FINDINGS": 1
-    },
-    {
-        "RULE_CODE": "MISSING_PAYMENT_AMOUNT",
-        "SEVERITY": "WARN",
-        "ENTITY": "transaction",
-        "FINDINGS": 1
     }
 ],"by_client":
 [
     {
-        "SOURCE_SYSTEM": "CLIENT_B",
-        "SEVERITY": "WARN",
-        "FINDINGS": 30
-    },
-    {
-        "SOURCE_SYSTEM": "CLIENT_B",
+        "SOURCE_SYSTEM": "CLIENT_A",
         "SEVERITY": "REJECT",
-        "FINDINGS": 1
+        "FINDINGS": 10
     },
     {
         "SOURCE_SYSTEM": "CLIENT_A",
@@ -223,9 +218,14 @@
         "FINDINGS": 129
     },
     {
-        "SOURCE_SYSTEM": "CLIENT_A",
+        "SOURCE_SYSTEM": "CLIENT_B",
         "SEVERITY": "REJECT",
-        "FINDINGS": 10
+        "FINDINGS": 1
+    },
+    {
+        "SOURCE_SYSTEM": "CLIENT_B",
+        "SEVERITY": "WARN",
+        "FINDINGS": 30
     }
 ],"coverage":
 [
@@ -245,7 +245,7 @@
         "DETECTED": 5
     },
     {
-        "EXPECTED_RULE": "NEGATIVE_PAYMENT_AMOUNT",
+        "EXPECTED_RULE": "DUPLICATE_CUSTOMER",
         "LABELLED": 4,
         "DETECTED": 4
     },
@@ -255,12 +255,12 @@
         "DETECTED": 4
     },
     {
-        "EXPECTED_RULE": "DUPLICATE_CUSTOMER",
+        "EXPECTED_RULE": "NEGATIVE_PAYMENT_AMOUNT",
         "LABELLED": 4,
         "DETECTED": 4
     },
     {
-        "EXPECTED_RULE": "MISSING_SKU",
+        "EXPECTED_RULE": "INVALID_EMAIL",
         "LABELLED": 3,
         "DETECTED": 3
     },
@@ -270,47 +270,12 @@
         "DETECTED": 3
     },
     {
-        "EXPECTED_RULE": "INVALID_EMAIL",
+        "EXPECTED_RULE": "MISSING_SKU",
         "LABELLED": 3,
         "DETECTED": 3
     },
     {
-        "EXPECTED_RULE": "MISSING_ORDER_ID",
-        "LABELLED": 2,
-        "DETECTED": 2
-    },
-    {
-        "EXPECTED_RULE": "master: products \u2014 negative price",
-        "LABELLED": 2,
-        "DETECTED": 2
-    },
-    {
-        "EXPECTED_RULE": "master: orders \u2014 invalid customer",
-        "LABELLED": 2,
-        "DETECTED": 2
-    },
-    {
         "EXPECTED_RULE": "DUPLICATE_ORDER_ID",
-        "LABELLED": 2,
-        "DETECTED": 2
-    },
-    {
-        "EXPECTED_RULE": "master: customers \u2014 invalid email",
-        "LABELLED": 2,
-        "DETECTED": 2
-    },
-    {
-        "EXPECTED_RULE": "NEGATIVE_UNIT_PRICE",
-        "LABELLED": 2,
-        "DETECTED": 2
-    },
-    {
-        "EXPECTED_RULE": "master: products \u2014 anomaly",
-        "LABELLED": 2,
-        "DETECTED": 2
-    },
-    {
-        "EXPECTED_RULE": "master: customers \u2014 duplicate",
         "LABELLED": 2,
         "DETECTED": 2
     },
@@ -320,12 +285,22 @@
         "DETECTED": 2
     },
     {
-        "EXPECTED_RULE": "master: orders \u2014 duplicate customer",
+        "EXPECTED_RULE": "MISSING_ORDER_ID",
         "LABELLED": 2,
         "DETECTED": 2
     },
     {
-        "EXPECTED_RULE": "master: products \u2014 duplicate",
+        "EXPECTED_RULE": "NEGATIVE_UNIT_PRICE",
+        "LABELLED": 2,
+        "DETECTED": 2
+    },
+    {
+        "EXPECTED_RULE": "master: customers \u2014 duplicate",
+        "LABELLED": 2,
+        "DETECTED": 2
+    },
+    {
+        "EXPECTED_RULE": "master: customers \u2014 invalid email",
         "LABELLED": 2,
         "DETECTED": 2
     },
@@ -335,57 +310,32 @@
         "DETECTED": 2
     },
     {
-        "EXPECTED_RULE": "MISSING_PAYMENT_METHOD",
-        "LABELLED": 1,
-        "DETECTED": 1
+        "EXPECTED_RULE": "master: orders \u2014 duplicate customer",
+        "LABELLED": 2,
+        "DETECTED": 2
     },
     {
-        "EXPECTED_RULE": "MISSING_PAYMENT_AMOUNT",
-        "LABELLED": 1,
-        "DETECTED": 1
+        "EXPECTED_RULE": "master: orders \u2014 invalid customer",
+        "LABELLED": 2,
+        "DETECTED": 2
     },
     {
-        "EXPECTED_RULE": "master: customers \u2014 null-heavy row",
-        "LABELLED": 1,
-        "DETECTED": 1
+        "EXPECTED_RULE": "master: products \u2014 anomaly",
+        "LABELLED": 2,
+        "DETECTED": 2
     },
     {
-        "EXPECTED_RULE": "ORPHAN_SKU or MISSING_SKU",
-        "LABELLED": 1,
-        "DETECTED": 1
+        "EXPECTED_RULE": "master: products \u2014 duplicate",
+        "LABELLED": 2,
+        "DETECTED": 2
     },
     {
-        "EXPECTED_RULE": "master: payments \u2014 negative",
-        "LABELLED": 1,
-        "DETECTED": 1
+        "EXPECTED_RULE": "master: products \u2014 negative price",
+        "LABELLED": 2,
+        "DETECTED": 2
     },
     {
-        "EXPECTED_RULE": "ORPHAN_CUSTOMER or MISSING_CUSTOMER_ID",
-        "LABELLED": 1,
-        "DETECTED": 1
-    },
-    {
-        "EXPECTED_RULE": "master: payments \u2014 negative amount",
-        "LABELLED": 1,
-        "DETECTED": 1
-    },
-    {
-        "EXPECTED_RULE": "master: customers \u2014 null-heavy anomaly row",
-        "LABELLED": 1,
-        "DETECTED": 1
-    },
-    {
-        "EXPECTED_RULE": "master: payments \u2014 duplicate",
-        "LABELLED": 1,
-        "DETECTED": 1
-    },
-    {
-        "EXPECTED_RULE": "master: customers \u2014 missing email",
-        "LABELLED": 1,
-        "DETECTED": 1
-    },
-    {
-        "EXPECTED_RULE": "MISSING_TRANSACTION_ID",
+        "EXPECTED_RULE": "MISSING_CUSTOMER_ID",
         "LABELLED": 1,
         "DETECTED": 1
     },
@@ -395,7 +345,32 @@
         "DETECTED": 1
     },
     {
-        "EXPECTED_RULE": "MISSING_CUSTOMER_ID",
+        "EXPECTED_RULE": "MISSING_PAYMENT_AMOUNT",
+        "LABELLED": 1,
+        "DETECTED": 1
+    },
+    {
+        "EXPECTED_RULE": "MISSING_PAYMENT_METHOD",
+        "LABELLED": 1,
+        "DETECTED": 1
+    },
+    {
+        "EXPECTED_RULE": "MISSING_QUANTITY",
+        "LABELLED": 1,
+        "DETECTED": 1
+    },
+    {
+        "EXPECTED_RULE": "MISSING_TRANSACTION_ID",
+        "LABELLED": 1,
+        "DETECTED": 1
+    },
+    {
+        "EXPECTED_RULE": "ORPHAN_CUSTOMER or MISSING_CUSTOMER_ID",
+        "LABELLED": 1,
+        "DETECTED": 1
+    },
+    {
+        "EXPECTED_RULE": "ORPHAN_SKU or MISSING_SKU",
         "LABELLED": 1,
         "DETECTED": 1
     },
@@ -405,7 +380,32 @@
         "DETECTED": 1
     },
     {
-        "EXPECTED_RULE": "MISSING_QUANTITY",
+        "EXPECTED_RULE": "master: customers \u2014 missing email",
+        "LABELLED": 1,
+        "DETECTED": 1
+    },
+    {
+        "EXPECTED_RULE": "master: customers \u2014 null-heavy anomaly row",
+        "LABELLED": 1,
+        "DETECTED": 1
+    },
+    {
+        "EXPECTED_RULE": "master: customers \u2014 null-heavy row",
+        "LABELLED": 1,
+        "DETECTED": 1
+    },
+    {
+        "EXPECTED_RULE": "master: payments \u2014 duplicate",
+        "LABELLED": 1,
+        "DETECTED": 1
+    },
+    {
+        "EXPECTED_RULE": "master: payments \u2014 negative",
+        "LABELLED": 1,
+        "DETECTED": 1
+    },
+    {
+        "EXPECTED_RULE": "master: payments \u2014 negative amount",
         "LABELLED": 1,
         "DETECTED": 1
     }
@@ -422,18 +422,18 @@
 ],"variance":
 [
     {
-        "SOURCE_SYSTEM": "CLIENT_B",
-        "TXNS": 9,
-        "WITH_VARIANCE": 1,
-        "TOTAL_ABS_VARIANCE": "53.94",
-        "NOT_COMPARABLE": 0
-    },
-    {
         "SOURCE_SYSTEM": "CLIENT_A",
         "TXNS": 37,
         "WITH_VARIANCE": 9,
         "TOTAL_ABS_VARIANCE": "694.76",
         "NOT_COMPARABLE": 6
+    },
+    {
+        "SOURCE_SYSTEM": "CLIENT_B",
+        "TXNS": 9,
+        "WITH_VARIANCE": 1,
+        "TOTAL_ABS_VARIANCE": "53.94",
+        "NOT_COMPARABLE": 0
     }
 ],"client_rows":
 [
@@ -448,28 +448,16 @@
 ],"funnel":
 [
     {
-        "STAGE": "transactions_parsed",
-        "ROW_COUNT": 57
-    },
-    {
-        "STAGE": "transactions_clean",
-        "ROW_COUNT": 46
-    },
-    {
-        "STAGE": "items_parsed",
-        "ROW_COUNT": 58
+        "STAGE": "customers_clean",
+        "ROW_COUNT": 43
     },
     {
         "STAGE": "items_clean",
         "ROW_COUNT": 43
     },
     {
-        "STAGE": "customers_clean",
-        "ROW_COUNT": 43
-    },
-    {
-        "STAGE": "products_clean",
-        "ROW_COUNT": 37
+        "STAGE": "items_parsed",
+        "ROW_COUNT": 58
     },
     {
         "STAGE": "orders_clean",
@@ -480,30 +468,42 @@
         "ROW_COUNT": 20
     },
     {
+        "STAGE": "products_clean",
+        "ROW_COUNT": 37
+    },
+    {
         "STAGE": "quarantine_findings",
         "ROW_COUNT": 170
+    },
+    {
+        "STAGE": "transactions_clean",
+        "ROW_COUNT": 46
+    },
+    {
+        "STAGE": "transactions_parsed",
+        "ROW_COUNT": 57
     }
 ],"gold_counts":
 [
     {
-        "ENTITY": "transactions",
-        "N": 46
+        "ENTITY": "customers",
+        "N": 43
     },
     {
         "ENTITY": "items",
         "N": 43
     },
     {
-        "ENTITY": "customers",
-        "N": 43
+        "ENTITY": "payments",
+        "N": 57
     },
     {
         "ENTITY": "products",
         "N": 37
     },
     {
-        "ENTITY": "payments",
-        "N": 57
+        "ENTITY": "transactions",
+        "N": 46
     }
 ],"master_annotations":
 [
@@ -513,7 +513,7 @@
         "RECORDS": 5
     },
     {
-        "ENTITY": "products",
+        "ENTITY": "customers",
         "SOURCE_ANNOTATION": "duplicate",
         "RECORDS": 2
     },
@@ -523,8 +523,8 @@
         "RECORDS": 2
     },
     {
-        "ENTITY": "products",
-        "SOURCE_ANNOTATION": "negative price",
+        "ENTITY": "orders",
+        "SOURCE_ANNOTATION": "duplicate",
         "RECORDS": 2
     },
     {
@@ -534,7 +534,7 @@
     },
     {
         "ENTITY": "orders",
-        "SOURCE_ANNOTATION": "duplicate",
+        "SOURCE_ANNOTATION": "invalid customer",
         "RECORDS": 2
     },
     {
@@ -543,34 +543,14 @@
         "RECORDS": 2
     },
     {
-        "ENTITY": "orders",
-        "SOURCE_ANNOTATION": "invalid customer",
-        "RECORDS": 2
-    },
-    {
-        "ENTITY": "customers",
+        "ENTITY": "products",
         "SOURCE_ANNOTATION": "duplicate",
         "RECORDS": 2
     },
     {
-        "ENTITY": "payments",
-        "SOURCE_ANNOTATION": "negative",
-        "RECORDS": 1
-    },
-    {
-        "ENTITY": "payments",
-        "SOURCE_ANNOTATION": "negative amount",
-        "RECORDS": 1
-    },
-    {
-        "ENTITY": "payments",
-        "SOURCE_ANNOTATION": "duplicate",
-        "RECORDS": 1
-    },
-    {
-        "ENTITY": "customers",
-        "SOURCE_ANNOTATION": "null-heavy row",
-        "RECORDS": 1
+        "ENTITY": "products",
+        "SOURCE_ANNOTATION": "negative price",
+        "RECORDS": 2
     },
     {
         "ENTITY": "customers",
@@ -585,6 +565,26 @@
     {
         "ENTITY": "customers",
         "SOURCE_ANNOTATION": "null-heavy anomaly row",
+        "RECORDS": 1
+    },
+    {
+        "ENTITY": "customers",
+        "SOURCE_ANNOTATION": "null-heavy row",
+        "RECORDS": 1
+    },
+    {
+        "ENTITY": "payments",
+        "SOURCE_ANNOTATION": "duplicate",
+        "RECORDS": 1
+    },
+    {
+        "ENTITY": "payments",
+        "SOURCE_ANNOTATION": "negative",
+        "RECORDS": 1
+    },
+    {
+        "ENTITY": "payments",
+        "SOURCE_ANNOTATION": "negative amount",
         "RECORDS": 1
     }
 ]}
