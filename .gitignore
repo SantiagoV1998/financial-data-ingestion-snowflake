@@ -8,8 +8,12 @@ config.toml
 .env.*
 credentials*
 
-# Snowflake CLI local state
+# Snowflake CLI local state. Both filenames are listed explicitly because the
+# directory rule is anchored to the repo root (so it cannot swallow a delivery),
+# which leaves a nested .snowflake/ unprotected — and SNOWFLAKE_HOME can point
+# anywhere. connections.toml is what the modern `snow` CLI stores credentials in.
 /.snowflake/
+connections.toml
 
 # OS
 .DS_Store
@@ -61,16 +65,33 @@ Thumbs.db
 # leaves Credentials.csv and CREDENTIALS.CSV committable. That is the plausible
 # case here rather than a theoretical one: Client B already delivers
 # Customer.CSV in uppercase, which is why *.CSV had to be re-included at all.
+#
+# Every pattern names a recognisable credential FORM — a known extension, or a
+# word in a fixed position — never a bare substring. Note gitignore uses fnmatch,
+# not bash extglob: `?(s)` is not a thing here, so the singular and plural forms
+# are separate lines. An earlier version used
+# `*secret*`, `*password*` and `*token*`, which in a payments repository is
+# actively dangerous: `token` is business vocabulary, and PaymentTokens.csv,
+# card_tokens.csv and TokenizedCards.csv were all swallowed. Worse, those
+# patterns match DIRECTORY names, so `data/tokens/Orders.csv` and
+# `data/tokenized_client/Orders.csv` disappeared entirely — git does not descend
+# into an excluded directory, so no re-inclusion could rescue them, and
+# `git add data` skipped them without a word while every gate stayed green.
+# That is the exact failure this whole block exists to prevent, recreated on the
+# other side of the ledger. Losing a delivery silently is worse than reviewing an
+# ambiguously named file by hand.
 data/**/[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]*
-data/**/*[Ss][Ee][Cc][Rr][Ee][Tt]*
-data/**/*[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]*
-data/**/*[Tt][Oo][Kk][Ee][Nn]*
 data/**/.[Ee][Nn][Vv]*
 data/**/*.[Kk][Ee][Yy]
 data/**/*.[Pp][Ee][Mm]
 data/**/*.[Pp]8
 data/**/[Rr][Ss][Aa]_[Kk][Ee][Yy]*
 data/**/*[Pp][Rr][Ii][Vv][Aa][Tt][Ee]_[Kk][Ee][Yy]*
+data/**/*_[Ss][Ee][Cc][Rr][Ee][Tt].*
+data/**/*_[Ss][Ee][Cc][Rr][Ee][Tt]s.*
+data/**/*_[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd].*
+data/**/*_[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]s.*
+data/**/*_[Tt][Oo][Kk][Ee][Nn].[Jj][Ss][Oo][Nn]
 
 # The directory patterns above (/tmp/, /.snowflake/, /.vscode/, /.idea/) are
 # anchored to the repository root on purpose. Git does not descend into an

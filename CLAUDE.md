@@ -35,8 +35,10 @@ an RSA key pair at `~/.snowflake/keys/` (Snowflake blocks password-only
 programmatic sign-in). Neither the config nor the key is in this repo, and `.gitignore` keeps it that
 way — including under `data/`, where the re-inclusion of delivered formats is
 deliberately scoped to `*.csv/*.CSV/*.xml/*.json/*.txt` and credential names are
-re-excluded after it. CI step 2b tests both directions, so neither protection can
-be removed quietly.
+re-excluded after it. CI step 2b tests both directions — deliveries visible, credentials ignored — so
+shadowing either protection fails the build. It cannot detect deleting the
+re-inclusion lines themselves, which are a no-op against today's patterns; see
+the note in `.gitignore`.
 
 Target: database `financial_ingestion`, warehouse `wh_ingestion`, schemas
 `bronze` / `silver` / `gold`, role **`ingestion_engineer`**.
@@ -115,7 +117,8 @@ regeneration command reads the *index*, not the working tree:
   five CI steps pass. The delivery is silently lost with a fully green build.
 
 No CI step can catch the second case — the file does not exist in the checkout.
-Run `git status` and confirm every delivered file is staged before regenerating.
+Run `git status --ignored` before regenerating — plain `git status` does not
+list ignored files at all, so a swallowed delivery looks like a clean tree.
 
 ```bash
 git add data                                    # stage the delivery FIRST —

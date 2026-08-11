@@ -173,7 +173,10 @@ jobs:
           # existing probe stayed green.
           for probe_file in Orders.csv Orders.CSV Transactions.xml transactions.json Transactions.txt \
                             tmp/Orders.csv .snowflake/Orders.csv .vscode/Orders.csv \
-                            .idea/Orders.csv sub/dir/Orders.csv; do
+                            .idea/Orders.csv sub/dir/Orders.csv \
+                            PaymentTokens.csv card_tokens.csv TokenizedCards.csv \
+                            password_reset_events.csv tokens/Orders.csv \
+                            tokenized/Orders.csv secrets_report.csv; do
             case "$(probe "data/probe_client/$probe_file")" in
               ignored) echo "::error::.gitignore would hide a delivered data/probe_client/$probe_file"; failed=1 ;;
               error)   echo "::error::git check-ignore failed on data/probe_client/$probe_file"; failed=1 ;;
@@ -186,7 +189,8 @@ jobs:
           # Credentials.csv and CREDENTIALS.CSV committable — and Client B
           # already delivers Customer.CSV in uppercase.
           for secret in credentials.csv Credentials.csv CREDENTIALS.CSV \
-                        api_secret.json API_SECRET.json auth_token.csv AuthToken.csv \
+                        api_secret.json API_SECRET.json app_secrets.json \
+                        db_password.txt auth_token.json \
                         .env .env.local .ENV \
                         signing.key signing.KEY secrets.pem Secrets.PEM \
                         rsa_key.p8 rsa_key.csv rsa_key.txt RSA_KEY.txt \
@@ -201,8 +205,10 @@ jobs:
           echo "Deliveries stay visible; credentials stay ignored."
 
       # Runs on pushes too. Restricting this to pull_request would leave a
-      # direct push to main verified only by steps 1 and 2 — which is precisely
-      # the hole this step exists to close, relocated rather than fixed.
+      # direct push to main verified only by steps 0, 1, 2 and 2b — all of which
+      # compare the change against itself, since the manifest ships inside it.
+      # This is the only step that compares against something the change cannot
+      # rewrite.
       # The exception is the workflow diff itself, and it is self-enforcing.
       #
       # Changing a source file requires regenerating the manifest, which changes
