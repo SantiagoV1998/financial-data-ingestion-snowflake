@@ -22,11 +22,17 @@ TRUNCATE TABLE dim_source_system;
 -- VALUES clause ("Invalid expression [MD5('CLIENT_A')] in VALUES clause").
 INSERT INTO dim_source_system
     (source_system_key, source_system, client_label, delivery_format, notes)
-SELECT MD5('CLIENT_A'), 'CLIENT_A', 'Client A', 'XML fragments + CSV',
-       'Seven XML fragments of one document with unbalanced root tags. Payment embedded per transaction, with no payment id and no status.'
+SELECT
+    MD5('CLIENT_A'), 'CLIENT_A', 'Client A', 'XML fragments + CSV',
+    'Seven XML fragments of one document with unbalanced root tags. '
+    || 'Payment embedded per transaction, with no payment id and no status.'
 UNION ALL
-SELECT MD5('CLIENT_B'), 'CLIENT_B', 'Client B (contents identify as ClientC)', 'JSON + CSV',
-       'Folder named Client B but every file inside identifies as clientC, with C- prefixed ids. Reported rather than silently resolved. JSON is a truncated sample: its trailing comment describes ~120 records where 11 were delivered.';
+SELECT
+    MD5('CLIENT_B'), 'CLIENT_B', 'Client B (contents identify as ClientC)', 'JSON + CSV',
+    'Folder named Client B but every file inside identifies as clientC, with '
+    || 'C- prefixed ids. Reported rather than silently resolved. JSON is a '
+    || 'truncated sample: its trailing comment describes ~120 records where '
+    || '11 were delivered.';
 
 /* ---------------------------------------------------------------------------
    dim_customer
@@ -63,7 +69,6 @@ SELECT
         WHEN 'VIP'     THEN 1   -- Client B top tier — same RANK, not the same tier
         WHEN 'SILVER'  THEN 2
         WHEN 'REGULAR' THEN 2
-        ELSE NULL
     END                                       AS tier_rank,
     signup_source,
     is_active
@@ -103,10 +108,10 @@ SELECT
     o.order_date,
     o.order_status,
     o.channel
-FROM      silver.orders_clean o
-LEFT JOIN dim_customer c
-       ON c.source_system = o.source_system
-      AND c.customer_id   = o.customer_id;
+FROM      silver.orders_clean AS o
+LEFT JOIN dim_customer AS c
+       ON o.source_system = c.source_system
+      AND o.customer_id   = c.customer_id;
 
 /* ---------------------------------------------------------------------------
    fact_order_item
@@ -124,6 +129,11 @@ TRUNCATE TABLE fact_order_item;
 INSERT INTO fact_order_item
     (order_item_key, source_system, transaction_key, order_key, product_key, sku,
      line_number, description, quantity, unit_price, line_amount, currency, is_return_line)
+WITH t AS (SELECT source_system, transaction_id, order_id,
+                  MAX(payment_currency) AS currency_hint
+           FROM   silver.transactions_clean
+           GROUP  BY 1, 2, 3
+)
 SELECT
     MD5(i.source_system || '|' || i.transaction_id || '|' || i.line_number),
     i.source_system,
@@ -138,16 +148,13 @@ SELECT
     i.quantity * i.unit_price                                        AS line_amount,
     COALESCE(i.currency, p.currency, t.currency_hint)                AS currency,
     IFF(i.quantity IS NULL, NULL, i.quantity < 0)                    AS is_return_line
-FROM      silver.transaction_items_clean i
-LEFT JOIN (SELECT source_system, transaction_id, order_id,
-                  MAX(payment_currency) AS currency_hint
-           FROM   silver.transactions_clean
-           GROUP  BY 1, 2, 3) t
-       ON t.source_system  = i.source_system
-      AND t.transaction_id = i.transaction_id
-LEFT JOIN dim_product p
-       ON p.source_system = i.source_system
-      AND p.sku           = i.sku;
+FROM      silver.transaction_items_clean AS i
+LEFT JOIN t
+       ON i.source_system  = t.source_system
+      AND i.transaction_id = t.transaction_id
+LEFT JOIN dim_product AS p
+       ON i.source_system = p.source_system
+      AND i.sku           = p.sku;
 
 /* ---------------------------------------------------------------------------
    fact_transaction
@@ -162,6 +169,13 @@ INSERT INTO fact_transaction
     (transaction_key, source_system, transaction_id, order_key, customer_key,
      transaction_date, line_count, gross_line_amount, payment_amount,
      amount_variance, currency, has_quality_warning)
+WITH li AS (SELECT source_system, transaction_key,
+                  COUNT(*)                  AS line_count,
+                  SUM(line_amount)          AS gross_line_amount,
+                  MAX(currency)             AS currency
+           FROM   fact_order_item
+           GROUP  BY 1, 2
+)
 SELECT
     MD5(t.source_system || '|' || t.transaction_id),
     t.source_system,
@@ -174,21 +188,16 @@ SELECT
     t.payment_amount,
     ROUND(t.payment_amount - li.gross_line_amount, 2)                AS amount_variance,
     COALESCE(t.payment_currency, li.currency)                        AS currency,
-    EXISTS (SELECT 1 FROM silver.dq_quarantine q
+    EXISTS(SELECT 1 FROM silver.dq_quarantine AS q
             WHERE q.source_system = t.source_system
               AND q.natural_key   = t.transaction_id
               AND q.severity      = 'WARN')                          AS has_quality_warning
-FROM      silver.transactions_clean t
-LEFT JOIN (SELECT source_system, transaction_key,
-                  COUNT(*)                  AS line_count,
-                  SUM(line_amount)          AS gross_line_amount,
-                  MAX(currency)             AS currency
-           FROM   fact_order_item
-           GROUP  BY 1, 2) li
+FROM      silver.transactions_clean AS t
+LEFT JOIN li
        ON li.transaction_key = MD5(t.source_system || '|' || t.transaction_id)
-LEFT JOIN dim_customer c
-       ON c.source_system = t.source_system
-      AND c.customer_id   = t.customer_id;
+LEFT JOIN dim_customer AS c
+       ON t.source_system = c.source_system
+      AND t.customer_id   = c.customer_id;
 
 /* ---------------------------------------------------------------------------
    fact_payment
@@ -221,10 +230,10 @@ SELECT
     p.status,
     'delivered by source',
     IFF(p.amount IS NULL, NULL, p.amount < 0)
-FROM      silver.payments_clean p
-LEFT JOIN silver.transactions_clean t
-       ON t.source_system = p.source_system
-      AND t.order_id      = p.order_id;
+FROM      silver.payments_clean AS p
+LEFT JOIN silver.transactions_clean AS t
+       ON p.source_system = t.source_system
+      AND p.order_id      = t.order_id;
 
 -- Client A: payment embedded in the transaction
 INSERT INTO fact_payment
@@ -244,7 +253,7 @@ SELECT
     'not delivered: payment is embedded in the transaction and carries no status field'
                                                      AS status_source,
     IFF(t.payment_amount IS NULL, NULL, t.payment_amount < 0)
-FROM silver.transactions_clean t
+FROM silver.transactions_clean AS t
 WHERE t.source_system = 'CLIENT_A';
 
 /* ---------------------------------------------------------------------------
@@ -254,14 +263,21 @@ TRUNCATE TABLE dq_summary;
 INSERT INTO dq_summary (source_system, entity, severity, rule_code, finding_count)
 SELECT source_system, entity, severity, rule_code, COUNT(*)
 FROM   silver.dq_quarantine
-GROUP  BY 1, 2, 3, 4;
+GROUP  BY source_system, entity, severity, rule_code;
 
 SELECT 'dim_source_system' AS table_name, COUNT(*) AS row_count FROM dim_source_system
-UNION ALL SELECT 'dim_customer',     COUNT(*) FROM dim_customer
-UNION ALL SELECT 'dim_product',      COUNT(*) FROM dim_product
-UNION ALL SELECT 'fact_order',       COUNT(*) FROM fact_order
-UNION ALL SELECT 'fact_transaction', COUNT(*) FROM fact_transaction
-UNION ALL SELECT 'fact_order_item',  COUNT(*) FROM fact_order_item
-UNION ALL SELECT 'fact_payment',     COUNT(*) FROM fact_payment
-UNION ALL SELECT 'dq_summary',       COUNT(*) FROM dq_summary
+UNION ALL
+SELECT 'dim_customer',     COUNT(*) FROM dim_customer
+UNION ALL
+SELECT 'dim_product',      COUNT(*) FROM dim_product
+UNION ALL
+SELECT 'fact_order',       COUNT(*) FROM fact_order
+UNION ALL
+SELECT 'fact_transaction', COUNT(*) FROM fact_transaction
+UNION ALL
+SELECT 'fact_order_item',  COUNT(*) FROM fact_order_item
+UNION ALL
+SELECT 'fact_payment',     COUNT(*) FROM fact_payment
+UNION ALL
+SELECT 'dq_summary',       COUNT(*) FROM dq_summary
 ORDER BY 1;

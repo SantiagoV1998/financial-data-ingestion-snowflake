@@ -48,9 +48,23 @@ SELECT
 
     NULLIF(TRIM(XMLGET(XMLGET(XMLGET(transaction_xml, 'Order'), 'Customer'), 'CustomerID'):"$"::VARCHAR), '')
                                                                              AS customer_id,
-    NULLIF(TRIM(XMLGET(XMLGET(XMLGET(XMLGET(transaction_xml, 'Order'), 'Customer'), 'Name'), 'FirstName'):"$"::VARCHAR), '')
+    NULLIF(
+        TRIM(
+            XMLGET(
+                XMLGET(XMLGET(XMLGET(transaction_xml, 'Order'), 'Customer'), 'Name'), 'FirstName'
+            ):"$"::VARCHAR
+        ),
+        ''
+    )
                                                                              AS first_name,
-    NULLIF(TRIM(XMLGET(XMLGET(XMLGET(XMLGET(transaction_xml, 'Order'), 'Customer'), 'Name'), 'LastName'):"$"::VARCHAR), '')
+    NULLIF(
+        TRIM(
+            XMLGET(
+                XMLGET(XMLGET(XMLGET(transaction_xml, 'Order'), 'Customer'), 'Name'), 'LastName'
+            ):"$"::VARCHAR
+        ),
+        ''
+    )
                                                                              AS last_name,
     NULLIF(TRIM(XMLGET(XMLGET(XMLGET(transaction_xml, 'Order'), 'Customer'), 'Email'):"$"::VARCHAR), '')
                                                                              AS email,
@@ -94,8 +108,8 @@ SELECT
     NULLIF(TRIM(XMLGET(i.value, 'UnitPrice'):"@currency"::VARCHAR), '')      AS currency,
 
     i.value                                                                  AS raw_payload
-FROM       parsed_client_a_transactions t,
-LATERAL FLATTEN(INPUT => TO_ARRAY(XMLGET(t.transaction_xml, 'Items'):"$"), OUTER => TRUE) i
+FROM       parsed_client_a_transactions AS t,
+LATERAL FLATTEN(INPUT => TO_ARRAY(XMLGET(t.transaction_xml, 'Items'):"$"), OUTER => TRUE) AS i
 WHERE  i.value IS NULL OR i.value:"@"::VARCHAR = 'Item';
 
 /* ---------------------------------------------------------------------------
@@ -159,5 +173,5 @@ SELECT
     NULLIF(TRIM(i.value:price.currency::VARCHAR), '')         AS currency,
 
     i.value                                                   AS raw_payload
-FROM       parsed_client_b_transactions t,
-LATERAL FLATTEN(INPUT => t.transaction_json:items, OUTER => TRUE) i;
+FROM       parsed_client_b_transactions AS t,
+LATERAL FLATTEN(INPUT => t.transaction_json:items, OUTER => TRUE) AS i;

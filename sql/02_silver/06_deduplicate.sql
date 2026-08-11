@@ -31,9 +31,9 @@ USE SCHEMA silver;
    ------------------------------------------------------------------------ */
 CREATE OR REPLACE TABLE transactions_clean AS
 SELECT *
-FROM   v_all_transactions t
+FROM   v_all_transactions AS t
 WHERE  NOT EXISTS (
-         SELECT 1 FROM dq_quarantine q
+         SELECT 1 FROM dq_quarantine AS q
          WHERE q.entity        = 'transaction'
            AND q.severity      = 'REJECT'
            AND q.source_system = t.source_system
@@ -55,13 +55,13 @@ QUALIFY ROW_NUMBER() OVER (
    ------------------------------------------------------------------------ */
 CREATE OR REPLACE TABLE transaction_items_clean AS
 SELECT i.*
-FROM   v_all_transaction_items i
-JOIN   transactions_clean t
-  ON   t.source_system  = i.source_system
- AND   t.transaction_id = i.transaction_id
+FROM   v_all_transaction_items AS i
+INNER JOIN   transactions_clean AS t
+  ON   i.source_system  = t.source_system
+ AND   i.transaction_id = t.transaction_id
 WHERE  i.raw_payload IS NOT NULL
   AND  NOT EXISTS (
-         SELECT 1 FROM dq_quarantine q
+         SELECT 1 FROM dq_quarantine AS q
          WHERE q.entity        = 'transaction_item'
            AND q.severity      = 'REJECT'
            AND q.source_system = i.source_system
@@ -150,13 +150,21 @@ QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, payment_id
    ------------------------------------------------------------------------ */
 CREATE OR REPLACE VIEW v_silver_summary AS
 SELECT 'transactions_parsed'    AS stage, COUNT(*) AS row_count FROM v_all_transactions
-UNION ALL SELECT 'transactions_clean',    COUNT(*) FROM transactions_clean
-UNION ALL SELECT 'items_parsed',          COUNT(*) FROM v_all_transaction_items WHERE raw_payload IS NOT NULL
-UNION ALL SELECT 'items_clean',           COUNT(*) FROM transaction_items_clean
-UNION ALL SELECT 'customers_clean',       COUNT(*) FROM customers_clean
-UNION ALL SELECT 'products_clean',        COUNT(*) FROM products_clean
-UNION ALL SELECT 'orders_clean',          COUNT(*) FROM orders_clean
-UNION ALL SELECT 'payments_clean',        COUNT(*) FROM payments_clean
-UNION ALL SELECT 'quarantine_findings',   COUNT(*) FROM dq_quarantine;
+UNION ALL
+SELECT 'transactions_clean',    COUNT(*) FROM transactions_clean
+UNION ALL
+SELECT 'items_parsed',          COUNT(*) FROM v_all_transaction_items WHERE raw_payload IS NOT NULL
+UNION ALL
+SELECT 'items_clean',           COUNT(*) FROM transaction_items_clean
+UNION ALL
+SELECT 'customers_clean',       COUNT(*) FROM customers_clean
+UNION ALL
+SELECT 'products_clean',        COUNT(*) FROM products_clean
+UNION ALL
+SELECT 'orders_clean',          COUNT(*) FROM orders_clean
+UNION ALL
+SELECT 'payments_clean',        COUNT(*) FROM payments_clean
+UNION ALL
+SELECT 'quarantine_findings',   COUNT(*) FROM dq_quarantine;
 
 SELECT * FROM v_silver_summary ORDER BY stage;

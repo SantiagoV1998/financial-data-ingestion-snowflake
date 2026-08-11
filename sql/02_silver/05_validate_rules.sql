@@ -64,42 +64,66 @@ WHERE  transaction_id IS NOT NULL;
    ------------------------------------------------------------------------ */
 CREATE OR REPLACE VIEW v_label_expectations AS
 SELECT g.source_system, g.transaction_id, g.label, e.phrase, e.acceptable_rules
-FROM   v_ground_truth g,
+FROM   v_ground_truth AS g,
 LATERAL (
-    SELECT phrase, acceptable_rules FROM (
-        SELECT 'duplicate customer'      AS phrase, ARRAY_CONSTRUCT('DUPLICATE_CUSTOMER')                     AS acceptable_rules UNION ALL
-        SELECT 'duplicate order id',      ARRAY_CONSTRUCT('DUPLICATE_ORDER_ID')                               UNION ALL
-        SELECT 'duplicate transaction id',ARRAY_CONSTRUCT('DUPLICATE_TRANSACTION_ID')                         UNION ALL
+    SELECT m.phrase, m.acceptable_rules FROM (
+        SELECT
+            'duplicate customer'      AS phrase,
+            ARRAY_CONSTRUCT('DUPLICATE_CUSTOMER')                     AS acceptable_rules
+        UNION ALL
+        SELECT 'duplicate order id',      ARRAY_CONSTRUCT('DUPLICATE_ORDER_ID')
+        UNION ALL
+        SELECT 'duplicate transaction id',ARRAY_CONSTRUCT('DUPLICATE_TRANSACTION_ID')
+        UNION ALL
         -- Two comment formats in the same file: "TXN-1001: duplicate transaction id"
         -- and the bare "TXN-1001 duplicate". Both mean the same thing.
-        SELECT 'duplicate',                ARRAY_CONSTRUCT('DUPLICATE_TRANSACTION_ID')                         UNION ALL
-        SELECT 'missing transactionid',   ARRAY_CONSTRUCT('MISSING_TRANSACTION_ID')                           UNION ALL
-        SELECT 'missing order id',        ARRAY_CONSTRUCT('MISSING_ORDER_ID')                                 UNION ALL
-        SELECT 'missing customer id',     ARRAY_CONSTRUCT('MISSING_CUSTOMER_ID')                              UNION ALL
-        SELECT 'missing order date',      ARRAY_CONSTRUCT('MISSING_ORDER_DATE')                               UNION ALL
-        SELECT 'missing customer name',   ARRAY_CONSTRUCT('MISSING_CUSTOMER_NAME')                            UNION ALL
-        SELECT 'missing customer email',  ARRAY_CONSTRUCT('MISSING_EMAIL')                                    UNION ALL
-        SELECT 'missing email',           ARRAY_CONSTRUCT('MISSING_EMAIL')                                    UNION ALL
-        SELECT 'missing payment method',  ARRAY_CONSTRUCT('MISSING_PAYMENT_METHOD')                           UNION ALL
-        SELECT 'missing payment amount',  ARRAY_CONSTRUCT('MISSING_PAYMENT_AMOUNT')                           UNION ALL
-        SELECT 'missing sku',             ARRAY_CONSTRUCT('MISSING_SKU')                                      UNION ALL
-        SELECT 'missing quantity',        ARRAY_CONSTRUCT('MISSING_QUANTITY')                                 UNION ALL
-        SELECT 'missing item description',ARRAY_CONSTRUCT('MISSING_DESCRIPTION')                              UNION ALL
-        SELECT 'invalid email',           ARRAY_CONSTRUCT('INVALID_EMAIL')                                    UNION ALL
-        SELECT 'invalid sku',             ARRAY_CONSTRUCT('ORPHAN_SKU', 'MISSING_SKU')                        UNION ALL
-        SELECT 'invalid customer',        ARRAY_CONSTRUCT('ORPHAN_CUSTOMER', 'MISSING_CUSTOMER_ID')           UNION ALL
-        SELECT 'negative quantity',       ARRAY_CONSTRUCT('NEGATIVE_QUANTITY')                                UNION ALL
-        SELECT 'negative unit price',     ARRAY_CONSTRUCT('NEGATIVE_UNIT_PRICE')                              UNION ALL
-        SELECT 'negative price',          ARRAY_CONSTRUCT('NEGATIVE_UNIT_PRICE')                              UNION ALL
+        SELECT 'duplicate',                ARRAY_CONSTRUCT('DUPLICATE_TRANSACTION_ID')
+        UNION ALL
+        SELECT 'missing transactionid',   ARRAY_CONSTRUCT('MISSING_TRANSACTION_ID')
+        UNION ALL
+        SELECT 'missing order id',        ARRAY_CONSTRUCT('MISSING_ORDER_ID')
+        UNION ALL
+        SELECT 'missing customer id',     ARRAY_CONSTRUCT('MISSING_CUSTOMER_ID')
+        UNION ALL
+        SELECT 'missing order date',      ARRAY_CONSTRUCT('MISSING_ORDER_DATE')
+        UNION ALL
+        SELECT 'missing customer name',   ARRAY_CONSTRUCT('MISSING_CUSTOMER_NAME')
+        UNION ALL
+        SELECT 'missing customer email',  ARRAY_CONSTRUCT('MISSING_EMAIL')
+        UNION ALL
+        SELECT 'missing email',           ARRAY_CONSTRUCT('MISSING_EMAIL')
+        UNION ALL
+        SELECT 'missing payment method',  ARRAY_CONSTRUCT('MISSING_PAYMENT_METHOD')
+        UNION ALL
+        SELECT 'missing payment amount',  ARRAY_CONSTRUCT('MISSING_PAYMENT_AMOUNT')
+        UNION ALL
+        SELECT 'missing sku',             ARRAY_CONSTRUCT('MISSING_SKU')
+        UNION ALL
+        SELECT 'missing quantity',        ARRAY_CONSTRUCT('MISSING_QUANTITY')
+        UNION ALL
+        SELECT 'missing item description',ARRAY_CONSTRUCT('MISSING_DESCRIPTION')
+        UNION ALL
+        SELECT 'invalid email',           ARRAY_CONSTRUCT('INVALID_EMAIL')
+        UNION ALL
+        SELECT 'invalid sku',             ARRAY_CONSTRUCT('ORPHAN_SKU', 'MISSING_SKU')
+        UNION ALL
+        SELECT 'invalid customer',        ARRAY_CONSTRUCT('ORPHAN_CUSTOMER', 'MISSING_CUSTOMER_ID')
+        UNION ALL
+        SELECT 'negative quantity',       ARRAY_CONSTRUCT('NEGATIVE_QUANTITY')
+        UNION ALL
+        SELECT 'negative unit price',     ARRAY_CONSTRUCT('NEGATIVE_UNIT_PRICE')
+        UNION ALL
+        SELECT 'negative price',          ARRAY_CONSTRUCT('NEGATIVE_UNIT_PRICE')
+        UNION ALL
         SELECT 'negative amount',         ARRAY_CONSTRUCT('NEGATIVE_PAYMENT_AMOUNT')
-    ) m
+    ) AS m
     WHERE CONTAINS(g.label, m.phrase)
       -- "duplicate customer" also contains "duplicate"; the specific reading wins.
       -- Specific readings win: "duplicate customer" contains "duplicate" too.
       AND NOT (m.phrase IN ('duplicate', 'duplicate transaction id')
                AND (CONTAINS(g.label, 'duplicate customer') OR CONTAINS(g.label, 'duplicate order id')))
       AND NOT (m.phrase = 'duplicate' AND CONTAINS(g.label, 'duplicate transaction id'))
-) e;
+) AS e;
 
 /* ---------------------------------------------------------------------------
    Coverage
@@ -115,13 +139,13 @@ SELECT
     x.label,
     ARRAY_TO_STRING(x.acceptable_rules, ' or ') AS expected_rule,
     IFF(EXISTS (
-            SELECT 1 FROM dq_quarantine q
+            SELECT 1 FROM dq_quarantine AS q
             WHERE q.source_system = x.source_system
               AND ARRAY_CONTAINS(q.rule_code::VARIANT, x.acceptable_rules)
               AND (q.natural_key = x.transaction_id
                    OR (q.natural_key IS NULL AND q.rule_code = 'MISSING_TRANSACTION_ID'))
         ), 'DETECTED', 'MISSED') AS outcome
-FROM v_label_expectations x;
+FROM v_label_expectations AS x;
 
 SELECT expected_rule,
        COUNT(*)                             AS labelled,
@@ -155,14 +179,14 @@ FROM v_rule_coverage;
 CREATE OR REPLACE VIEW v_label_classification AS
 SELECT g.transaction_id, g.label,
        CASE
-         WHEN EXISTS (SELECT 1 FROM v_label_expectations e
+         WHEN EXISTS (SELECT 1 FROM v_label_expectations AS e
                       WHERE e.transaction_id = g.transaction_id AND e.label = g.label)
               THEN 'MAPPED_TO_RULE'
          WHEN CONTAINS(g.label, 'extra nested') OR CONTAINS(g.label, 'invalid fields')
               THEN 'SCHEMA_VARIATION_BY_DESIGN'
          ELSE 'UNCLASSIFIED'
        END AS classification
-FROM v_ground_truth g;
+FROM v_ground_truth AS g;
 
 SELECT classification, COUNT(*) AS labels
 FROM   v_label_classification

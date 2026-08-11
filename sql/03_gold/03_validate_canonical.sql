@@ -20,23 +20,23 @@ CREATE OR REPLACE VIEW v_canonical_validation AS
    damage surfaces here rather than in a report six queries downstream.       */
 SELECT 'dim_customer_key_unique' AS check_name, 0 AS expected,
        (SELECT COUNT(*) FROM (SELECT customer_key FROM dim_customer
-                              GROUP BY 1 HAVING COUNT(*) > 1)) AS actual
+                              GROUP BY 1 HAVING COUNT(*) > 1) AS dupes) AS actual
 UNION ALL
 SELECT 'dim_product_key_unique', 0,
        (SELECT COUNT(*) FROM (SELECT product_key FROM dim_product
-                              GROUP BY 1 HAVING COUNT(*) > 1))
+                              GROUP BY 1 HAVING COUNT(*) > 1) AS dupes)
 UNION ALL
 SELECT 'fact_transaction_key_unique', 0,
        (SELECT COUNT(*) FROM (SELECT transaction_key FROM fact_transaction
-                              GROUP BY 1 HAVING COUNT(*) > 1))
+                              GROUP BY 1 HAVING COUNT(*) > 1) AS dupes)
 UNION ALL
 SELECT 'fact_order_item_key_unique', 0,
        (SELECT COUNT(*) FROM (SELECT order_item_key FROM fact_order_item
-                              GROUP BY 1 HAVING COUNT(*) > 1))
+                              GROUP BY 1 HAVING COUNT(*) > 1) AS dupes)
 UNION ALL
 SELECT 'fact_payment_key_unique', 0,
        (SELECT COUNT(*) FROM (SELECT payment_key FROM fact_payment
-                              GROUP BY 1 HAVING COUNT(*) > 1))
+                              GROUP BY 1 HAVING COUNT(*) > 1) AS dupes)
 
 /* Referential integrity -----------------------------------------------------
    A populated foreign key must resolve. NULL is permitted and meaningful — an
@@ -45,27 +45,27 @@ SELECT 'fact_payment_key_unique', 0,
    dimension row. What must never happen is a key that points at nothing.      */
 UNION ALL
 SELECT 'fact_order_customer_resolves', 0,
-       (SELECT COUNT(*) FROM fact_order f
+       (SELECT COUNT(*) FROM fact_order AS f
         WHERE f.customer_key IS NOT NULL
-          AND NOT EXISTS (SELECT 1 FROM dim_customer d
+          AND NOT EXISTS (SELECT 1 FROM dim_customer AS d
                           WHERE d.customer_key = f.customer_key))
 UNION ALL
 SELECT 'fact_transaction_customer_resolves', 0,
-       (SELECT COUNT(*) FROM fact_transaction f
+       (SELECT COUNT(*) FROM fact_transaction AS f
         WHERE f.customer_key IS NOT NULL
-          AND NOT EXISTS (SELECT 1 FROM dim_customer d
+          AND NOT EXISTS (SELECT 1 FROM dim_customer AS d
                           WHERE d.customer_key = f.customer_key))
 UNION ALL
 SELECT 'fact_order_item_transaction_resolves', 0,
-       (SELECT COUNT(*) FROM fact_order_item i
+       (SELECT COUNT(*) FROM fact_order_item AS i
         WHERE i.transaction_key IS NOT NULL
-          AND NOT EXISTS (SELECT 1 FROM fact_transaction t
+          AND NOT EXISTS (SELECT 1 FROM fact_transaction AS t
                           WHERE t.transaction_key = i.transaction_key))
 UNION ALL
 SELECT 'fact_order_item_product_resolves', 0,
-       (SELECT COUNT(*) FROM fact_order_item i
+       (SELECT COUNT(*) FROM fact_order_item AS i
         WHERE i.product_key IS NOT NULL
-          AND NOT EXISTS (SELECT 1 FROM dim_product p
+          AND NOT EXISTS (SELECT 1 FROM dim_product AS p
                           WHERE p.product_key = i.product_key))
 
 /* Nothing was lost or invented in the transformation ------------------------ */
@@ -88,8 +88,8 @@ SELECT 'both_clients_present', 2,
        (SELECT COUNT(DISTINCT source_system) FROM fact_transaction)
 UNION ALL
 SELECT 'no_unknown_source_system', 0,
-       (SELECT COUNT(*) FROM fact_transaction f
-        WHERE NOT EXISTS (SELECT 1 FROM dim_source_system s
+       (SELECT COUNT(*) FROM fact_transaction AS f
+        WHERE NOT EXISTS (SELECT 1 FROM dim_source_system AS s
                           WHERE s.source_system = f.source_system))
 
 /* Conflict resolutions actually held ----------------------------------------
@@ -99,7 +99,7 @@ SELECT 'no_unknown_source_system', 0,
 UNION ALL
 -- Every customer with a delivered tier keeps the original text verbatim.
 SELECT 'tier_raw_preserved', 0,
-       (SELECT COUNT(*) FROM dim_customer c
+       (SELECT COUNT(*) FROM dim_customer AS c
         WHERE c.tier_rank IS NOT NULL AND c.tier_raw IS NULL)
 UNION ALL
 -- Client A payments must carry no status: the source does not deliver one.

@@ -47,7 +47,7 @@ USE SCHEMA silver;
    quality rules in 05 — rules that agree with it are demonstrably right, and
    rows it flags that the rules miss are gaps worth knowing about.
    ------------------------------------------------------------------------ */
-CREATE OR REPLACE FUNCTION f_strip_annotation(s VARCHAR)
+CREATE OR REPLACE FUNCTION F_STRIP_ANNOTATION(s VARCHAR)
 RETURNS VARCHAR
 LANGUAGE SQL
 COMMENT = 'Removes an inline "<-- ..." exporter annotation from a CSV value'
@@ -55,7 +55,7 @@ AS $$
     NULLIF(TRIM(REGEXP_REPLACE(s, '\\s*<--.*$', '')), '')
 $$;
 
-CREATE OR REPLACE FUNCTION f_annotation(s VARCHAR)
+CREATE OR REPLACE FUNCTION F_ANNOTATION(s VARCHAR)
 RETURNS VARCHAR
 LANGUAGE SQL
 COMMENT = 'Returns the inline "<-- ..." annotation from a CSV value, or NULL'
@@ -69,18 +69,26 @@ $$;
 CREATE OR REPLACE TABLE stg_client_a_customers AS
 SELECT
     'CLIENT_A'                        AS source_system,
-    f_strip_annotation(customer_id)     AS customer_id,
-    f_strip_annotation(first_name)      AS first_name,
-    f_strip_annotation(last_name)       AS last_name,
-    f_strip_annotation(email)           AS email,
-    f_strip_annotation(loyalty_tier)    AS loyalty_tier,
-    f_strip_annotation(signup_source)   AS signup_source,
+    F_STRIP_ANNOTATION(customer_id)     AS customer_id,
+    F_STRIP_ANNOTATION(first_name)      AS first_name,
+    F_STRIP_ANNOTATION(last_name)       AS last_name,
+    F_STRIP_ANNOTATION(email)           AS email,
+    F_STRIP_ANNOTATION(loyalty_tier)    AS loyalty_tier,
+    F_STRIP_ANNOTATION(signup_source)   AS signup_source,
     is_active                         AS is_active_raw,
-    TRY_TO_BOOLEAN(f_strip_annotation(is_active)) AS is_active,
+    TRY_TO_BOOLEAN(F_STRIP_ANNOTATION(is_active)) AS is_active,
     -- The provider's own label for this row's anomaly, kept as ground truth
     -- for validating the quality rules. Can appear in any column, since a short
     -- row shifts it left.
-    COALESCE(f_annotation(customer_id), f_annotation(first_name), f_annotation(last_name), f_annotation(email), f_annotation(loyalty_tier), f_annotation(signup_source), f_annotation(is_active))
+    COALESCE(
+        F_ANNOTATION(customer_id),
+        F_ANNOTATION(first_name),
+        F_ANNOTATION(last_name),
+        F_ANNOTATION(email),
+        F_ANNOTATION(loyalty_tier),
+        F_ANNOTATION(signup_source),
+        F_ANNOTATION(is_active)
+    )
         AS source_annotation,
     source_file,
     file_row_number
@@ -89,16 +97,22 @@ FROM bronze.raw_client_a_customers;
 CREATE OR REPLACE TABLE stg_client_a_orders AS
 SELECT
     'CLIENT_A'                        AS source_system,
-    f_strip_annotation(order_id)        AS order_id,
-    f_strip_annotation(customer_id)     AS customer_id,
+    F_STRIP_ANNOTATION(order_id)        AS order_id,
+    F_STRIP_ANNOTATION(customer_id)     AS customer_id,
     order_date                        AS order_date_raw,
-    TRY_TO_DATE(f_strip_annotation(order_date), 'YYYY-MM-DD') AS order_date,
-    f_strip_annotation(order_status)    AS order_status,
-    f_strip_annotation(channel)         AS channel,          -- absent for Client B
+    TRY_TO_DATE(F_STRIP_ANNOTATION(order_date), 'YYYY-MM-DD') AS order_date,
+    F_STRIP_ANNOTATION(order_status)    AS order_status,
+    F_STRIP_ANNOTATION(channel)         AS channel,          -- absent for Client B
     -- The provider's own label for this row's anomaly, kept as ground truth
     -- for validating the quality rules. Can appear in any column, since a short
     -- row shifts it left.
-    COALESCE(f_annotation(order_id), f_annotation(customer_id), f_annotation(order_date), f_annotation(order_status), f_annotation(channel))
+    COALESCE(
+        F_ANNOTATION(order_id),
+        F_ANNOTATION(customer_id),
+        F_ANNOTATION(order_date),
+        F_ANNOTATION(order_status),
+        F_ANNOTATION(channel)
+    )
         AS source_annotation,
     source_file,
     file_row_number
@@ -107,18 +121,25 @@ FROM bronze.raw_client_a_orders;
 CREATE OR REPLACE TABLE stg_client_a_products AS
 SELECT
     'CLIENT_A'                        AS source_system,
-    f_strip_annotation(sku)             AS sku,
-    f_strip_annotation(product_name)    AS product_name,
-    f_strip_annotation(category)        AS category,
+    F_STRIP_ANNOTATION(sku)             AS sku,
+    F_STRIP_ANNOTATION(product_name)    AS product_name,
+    F_STRIP_ANNOTATION(category)        AS category,
     unit_price                        AS unit_price_raw,
-    TRY_TO_NUMBER(f_strip_annotation(unit_price), 18, 2) AS unit_price,
-    f_strip_annotation(currency)        AS currency,
+    TRY_TO_NUMBER(F_STRIP_ANNOTATION(unit_price), 18, 2) AS unit_price,
+    F_STRIP_ANNOTATION(currency)        AS currency,
     is_active                         AS is_active_raw,
-    TRY_TO_BOOLEAN(f_strip_annotation(is_active)) AS is_active,
+    TRY_TO_BOOLEAN(F_STRIP_ANNOTATION(is_active)) AS is_active,
     -- The provider's own label for this row's anomaly, kept as ground truth
     -- for validating the quality rules. Can appear in any column, since a short
     -- row shifts it left.
-    COALESCE(f_annotation(sku), f_annotation(product_name), f_annotation(category), f_annotation(unit_price), f_annotation(currency), f_annotation(is_active))
+    COALESCE(
+        F_ANNOTATION(sku),
+        F_ANNOTATION(product_name),
+        F_ANNOTATION(category),
+        F_ANNOTATION(unit_price),
+        F_ANNOTATION(currency),
+        F_ANNOTATION(is_active)
+    )
         AS source_annotation,
     source_file,
     file_row_number
@@ -134,16 +155,22 @@ FROM bronze.raw_client_a_products;
 CREATE OR REPLACE TABLE stg_client_b_customers AS
 SELECT
     'CLIENT_B'                        AS source_system,
-    f_strip_annotation(customer_id)     AS customer_id,
-    f_strip_annotation(customer_name)   AS customer_name,   -- one field, not two
-    f_strip_annotation(email)           AS email,
-    f_strip_annotation(segment)         AS segment,         -- VIP/REGULAR, not GOLD/SILVER
+    F_STRIP_ANNOTATION(customer_id)     AS customer_id,
+    F_STRIP_ANNOTATION(customer_name)   AS customer_name,   -- one field, not two
+    F_STRIP_ANNOTATION(email)           AS email,
+    F_STRIP_ANNOTATION(segment)         AS segment,         -- VIP/REGULAR, not GOLD/SILVER
     is_active                         AS is_active_raw,
-    TRY_TO_BOOLEAN(f_strip_annotation(is_active)) AS is_active,
+    TRY_TO_BOOLEAN(F_STRIP_ANNOTATION(is_active)) AS is_active,
     -- The provider's own label for this row's anomaly, kept as ground truth
     -- for validating the quality rules. Can appear in any column, since a short
     -- row shifts it left.
-    COALESCE(f_annotation(customer_id), f_annotation(customer_name), f_annotation(email), f_annotation(segment), f_annotation(is_active))
+    COALESCE(
+        F_ANNOTATION(customer_id),
+        F_ANNOTATION(customer_name),
+        F_ANNOTATION(email),
+        F_ANNOTATION(segment),
+        F_ANNOTATION(is_active)
+    )
         AS source_annotation,
     source_file,
     file_row_number
@@ -152,16 +179,21 @@ FROM bronze.raw_client_b_customers;
 CREATE OR REPLACE TABLE stg_client_b_orders AS
 SELECT
     'CLIENT_B'                        AS source_system,
-    f_strip_annotation(order_id)        AS order_id,
-    f_strip_annotation(customer_id)     AS customer_id,
+    F_STRIP_ANNOTATION(order_id)        AS order_id,
+    F_STRIP_ANNOTATION(customer_id)     AS customer_id,
     order_date                        AS order_date_raw,
-    TRY_TO_DATE(f_strip_annotation(order_date), 'YYYY-MM-DD') AS order_date,
-    f_strip_annotation(order_status)    AS order_status,
+    TRY_TO_DATE(F_STRIP_ANNOTATION(order_date), 'YYYY-MM-DD') AS order_date,
+    F_STRIP_ANNOTATION(order_status)    AS order_status,
     NULL::VARCHAR                     AS channel,         -- not delivered by this client
     -- The provider's own label for this row's anomaly, kept as ground truth
     -- for validating the quality rules. Can appear in any column, since a short
     -- row shifts it left.
-    COALESCE(f_annotation(order_id), f_annotation(customer_id), f_annotation(order_date), f_annotation(order_status))
+    COALESCE(
+        F_ANNOTATION(order_id),
+        F_ANNOTATION(customer_id),
+        F_ANNOTATION(order_date),
+        F_ANNOTATION(order_status)
+    )
         AS source_annotation,
     source_file,
     file_row_number
@@ -170,18 +202,25 @@ FROM bronze.raw_client_b_orders;
 CREATE OR REPLACE TABLE stg_client_b_products AS
 SELECT
     'CLIENT_B'                        AS source_system,
-    f_strip_annotation(sku)             AS sku,
-    f_strip_annotation(product_name)    AS product_name,
-    f_strip_annotation(category)        AS category,
+    F_STRIP_ANNOTATION(sku)             AS sku,
+    F_STRIP_ANNOTATION(product_name)    AS product_name,
+    F_STRIP_ANNOTATION(category)        AS category,
     unit_price                        AS unit_price_raw,
-    TRY_TO_NUMBER(f_strip_annotation(unit_price), 18, 2) AS unit_price,
-    f_strip_annotation(currency)        AS currency,
+    TRY_TO_NUMBER(F_STRIP_ANNOTATION(unit_price), 18, 2) AS unit_price,
+    F_STRIP_ANNOTATION(currency)        AS currency,
     is_active                         AS is_active_raw,
-    TRY_TO_BOOLEAN(f_strip_annotation(is_active)) AS is_active,
+    TRY_TO_BOOLEAN(F_STRIP_ANNOTATION(is_active)) AS is_active,
     -- The provider's own label for this row's anomaly, kept as ground truth
     -- for validating the quality rules. Can appear in any column, since a short
     -- row shifts it left.
-    COALESCE(f_annotation(sku), f_annotation(product_name), f_annotation(category), f_annotation(unit_price), f_annotation(currency), f_annotation(is_active))
+    COALESCE(
+        F_ANNOTATION(sku),
+        F_ANNOTATION(product_name),
+        F_ANNOTATION(category),
+        F_ANNOTATION(unit_price),
+        F_ANNOTATION(currency),
+        F_ANNOTATION(is_active)
+    )
         AS source_annotation,
     source_file,
     file_row_number
@@ -193,17 +232,24 @@ FROM bronze.raw_client_b_products;
 CREATE OR REPLACE TABLE stg_client_b_payments AS
 SELECT
     'CLIENT_B'                        AS source_system,
-    f_strip_annotation(payment_id)      AS payment_id,
-    f_strip_annotation(order_id)        AS order_id,
-    f_strip_annotation(payment_method)  AS payment_method,
+    F_STRIP_ANNOTATION(payment_id)      AS payment_id,
+    F_STRIP_ANNOTATION(order_id)        AS order_id,
+    F_STRIP_ANNOTATION(payment_method)  AS payment_method,
     amount                            AS amount_raw,
-    TRY_TO_NUMBER(f_strip_annotation(amount), 18, 2) AS amount,
-    f_strip_annotation(currency)        AS currency,
-    f_strip_annotation(status)          AS status,          -- absent for Client A
+    TRY_TO_NUMBER(F_STRIP_ANNOTATION(amount), 18, 2) AS amount,
+    F_STRIP_ANNOTATION(currency)        AS currency,
+    F_STRIP_ANNOTATION(status)          AS status,          -- absent for Client A
     -- The provider's own label for this row's anomaly, kept as ground truth
     -- for validating the quality rules. Can appear in any column, since a short
     -- row shifts it left.
-    COALESCE(f_annotation(payment_id), f_annotation(order_id), f_annotation(payment_method), f_annotation(amount), f_annotation(currency), f_annotation(status))
+    COALESCE(
+        F_ANNOTATION(payment_id),
+        F_ANNOTATION(order_id),
+        F_ANNOTATION(payment_method),
+        F_ANNOTATION(amount),
+        F_ANNOTATION(currency),
+        F_ANNOTATION(status)
+    )
         AS source_annotation,
     source_file,
     file_row_number

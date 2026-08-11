@@ -168,30 +168,30 @@ FROM v_all_transactions WHERE payment_amount < 0;
    a business problem. Collapsing both into one rule hides the second.        */
 INSERT INTO dq_quarantine
     (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction', transaction_id,
+SELECT d.source_system, 'transaction', d.transaction_id,
        'DUPLICATE_TRANSACTION_ID',
-       'Transaction id appears ' || occurrences || ' times in the delivery',
-       'WARN', raw_payload
+       'Transaction id appears ' || d.occurrences || ' times in the delivery',
+       'WARN', d.raw_payload
 FROM (
-    SELECT t.*, COUNT(*) OVER (PARTITION BY source_system, transaction_id) AS occurrences
-    FROM   v_all_transactions t
-    WHERE  transaction_id IS NOT NULL
-)
-WHERE occurrences > 1;
+    SELECT t.*, COUNT(*) OVER (PARTITION BY t.source_system, t.transaction_id) AS occurrences
+    FROM   v_all_transactions AS t
+    WHERE  t.transaction_id IS NOT NULL
+) AS d
+WHERE d.occurrences > 1;
 
 INSERT INTO dq_quarantine
     (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'transaction', transaction_id,
+SELECT d.source_system, 'transaction', d.transaction_id,
        'DUPLICATE_ORDER_ID',
-       'Order ' || order_id || ' appears under ' || distinct_txns || ' different transaction ids',
-       'WARN', raw_payload
+       'Order ' || d.order_id || ' appears under ' || d.distinct_txns || ' different transaction ids',
+       'WARN', d.raw_payload
 FROM (
     SELECT t.*,
-           COUNT(DISTINCT transaction_id) OVER (PARTITION BY source_system, order_id) AS distinct_txns
-    FROM   v_all_transactions t
-    WHERE  order_id IS NOT NULL AND transaction_id IS NOT NULL
-)
-WHERE distinct_txns > 1;
+           COUNT(DISTINCT t.transaction_id) OVER (PARTITION BY t.source_system, t.order_id) AS distinct_txns
+    FROM   v_all_transactions AS t
+    WHERE  t.order_id IS NOT NULL AND t.transaction_id IS NOT NULL
+) AS d
+WHERE d.distinct_txns > 1;
 
 -- Same customer appearing under several transactions is normal; the provider's
 -- label "duplicate customer" points at something narrower — the customer master
@@ -200,23 +200,24 @@ WHERE distinct_txns > 1;
 -- anomalies with no rule behind them.
 INSERT INTO dq_quarantine
     (source_system, entity, natural_key, rule_code, rule_detail, severity, raw_payload)
-SELECT t.source_system, 'transaction', t.transaction_id,
-       'DUPLICATE_CUSTOMER',
-       'Customer ' || t.customer_id || ' appears ' || d.occurrences ||
-       ' times in the customer master, so any join against it multiplies rows',
-       'WARN', t.raw_payload
-FROM   v_all_transactions t
-JOIN (
-    SELECT source_system, customer_id, COUNT(*) AS occurrences
+WITH d AS (
+    SELECT m.source_system, m.customer_id, COUNT(*) AS occurrences
     FROM  (SELECT source_system, customer_id FROM stg_client_a_customers
            UNION ALL
-           SELECT source_system, customer_id FROM stg_client_b_customers)
-    WHERE customer_id IS NOT NULL
-    GROUP BY 1, 2
+           SELECT source_system, customer_id FROM stg_client_b_customers) AS m
+    WHERE m.customer_id IS NOT NULL
+    GROUP BY source_system, customer_id
     HAVING COUNT(*) > 1
-) d
-  ON  d.source_system = t.source_system
-  AND d.customer_id   = t.customer_id;
+)
+SELECT t.source_system, 'transaction', t.transaction_id,
+       'DUPLICATE_CUSTOMER',
+       'Customer ' || t.customer_id || ' appears ' || d.occurrences
+       || ' times in the customer master, so any join against it multiplies rows',
+       'WARN', t.raw_payload
+FROM   v_all_transactions AS t
+INNER JOIN d
+  ON  t.source_system = d.source_system
+  AND t.customer_id   = d.customer_id;
 
 /* Referential integrity against master data -------------------------------- */
 INSERT INTO dq_quarantine
@@ -229,13 +230,13 @@ SELECT t.source_system, 'transaction', t.transaction_id,
        'ORPHAN_CUSTOMER',
        'Customer ' || t.customer_id || ' has no master record',
        'WARN', t.raw_payload
-FROM   v_all_transactions t
+FROM   v_all_transactions AS t
 WHERE  t.customer_id IS NOT NULL
   AND  NOT EXISTS (
         SELECT 1
         FROM  (SELECT source_system, customer_id FROM stg_client_a_customers
                UNION ALL
-               SELECT source_system, customer_id FROM stg_client_b_customers) c
+               SELECT source_system, customer_id FROM stg_client_b_customers) AS c
         WHERE c.source_system = t.source_system
           AND c.customer_id   = t.customer_id
       );
@@ -293,13 +294,13 @@ SELECT i.source_system, 'transaction_item', i.transaction_id, i.line_number,
        'ORPHAN_SKU',
        'SKU ' || i.sku || ' has no product master record',
        'WARN', i.raw_payload
-FROM   v_all_transaction_items i
+FROM   v_all_transaction_items AS i
 WHERE  i.sku IS NOT NULL
   AND  NOT EXISTS (
         SELECT 1
         FROM  (SELECT source_system, sku FROM stg_client_a_products
                UNION ALL
-               SELECT source_system, sku FROM stg_client_b_products) p
+               SELECT source_system, sku FROM stg_client_b_products) AS p
         WHERE p.source_system = i.source_system
           AND p.sku           = i.sku
       );
@@ -310,9 +311,9 @@ WHERE  i.sku IS NOT NULL
 CREATE OR REPLACE VIEW v_dq_summary AS
 SELECT source_system, entity, severity, rule_code, COUNT(*) AS findings
 FROM   dq_quarantine
-GROUP  BY 1, 2, 3, 4;
+GROUP  BY source_system, entity, severity, rule_code;
 
 SELECT severity, rule_code, entity, SUM(findings) AS findings
 FROM   v_dq_summary
 GROUP  BY 1, 2, 3
-ORDER  BY severity, findings DESC;
+ORDER  BY severity ASC, findings DESC;

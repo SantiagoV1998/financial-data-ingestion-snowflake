@@ -52,9 +52,9 @@ WITH fragment_lines AS (
 ),
 document AS (
     SELECT PARSE_XML(
-             '<SalesData>' ||
-             LISTAGG(line_text, '\n') WITHIN GROUP (ORDER BY fragment_seq, file_row_number) ||
-             '</SalesData>'
+             '<SalesData>'
+             || LISTAGG(line_text, '\n') WITHIN GROUP (ORDER BY fragment_seq, file_row_number)
+             || '</SalesData>'
            ) AS doc
     FROM fragment_lines
 )
@@ -63,8 +63,8 @@ SELECT
     f.value                               AS transaction_xml,
     'CLIENT_A'                            AS source_system,
     SYSDATE()                             AS parsed_at
-FROM   document,
-       LATERAL FLATTEN(INPUT => doc:"$") f
+FROM   document AS d,
+       LATERAL FLATTEN(INPUT => d.doc:"$") AS f
 WHERE  f.value:"@"::VARCHAR = 'Transaction';
 
 /* ---------------------------------------------------------------------------
@@ -93,8 +93,8 @@ SELECT
     f.value      AS transaction_json,
     'CLIENT_B'   AS source_system,
     SYSDATE()    AS parsed_at
-FROM   document,
-       LATERAL FLATTEN(INPUT => doc:transactions) f;
+FROM   document AS d,
+       LATERAL FLATTEN(INPUT => d.doc:transactions) AS f;
 
 /* ---------------------------------------------------------------------------
    Parse assertions
