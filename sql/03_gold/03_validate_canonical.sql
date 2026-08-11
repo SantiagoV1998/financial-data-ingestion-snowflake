@@ -208,14 +208,20 @@ UNION ALL
 -- having a comparable variance: gross_line_amount would be a sum across units.
 -- Zero in this delivery because every line is USD, which is exactly why the
 -- check has to exist rather than the property be assumed.
-SELECT 'no_comparable_variance_across_currencies',
+-- Recomputed from fact_order_item with the SAME null-aware measure the flag
+-- uses. Comparing against COUNT(DISTINCT currency) > 1 alone restated the flag's
+-- own definition, so the answer was 0 by construction rather than by evidence —
+-- a check that cannot fail is not a check.
+SELECT 'no_comparable_variance_with_unclear_currency',
        0,
        (SELECT COUNT(*)
         FROM   fact_transaction AS t
         WHERE  t.variance_is_comparable = TRUE
-          AND  (SELECT COUNT(DISTINCT i.currency)
-                FROM   fact_order_item AS i
-                WHERE  i.transaction_key = t.transaction_key) > 1)
+          AND  EXISTS (SELECT 1
+                       FROM   fact_order_item AS i
+                       WHERE  i.transaction_key = t.transaction_key
+                       HAVING COUNT(DISTINCT i.currency) > 1
+                           OR COUNT(*) <> COUNT(i.currency)))
 UNION ALL
 -- Master rows leave the pipeline only through a recorded finding. Silver's
 -- reconciliation raises on mismatch; this restates it as a canonical invariant
@@ -229,7 +235,32 @@ UNION ALL
 -- evaluated they become MISSED here rather than vanishing from the total.
 SELECT 'every_master_label_detected',
        (SELECT COUNT(*) FROM silver.v_master_rule_coverage),
-       (SELECT COUNT(*) FROM silver.v_master_rule_coverage WHERE outcome = 'DETECTED');
+       (SELECT COUNT(*) FROM silver.v_master_rule_coverage WHERE outcome = 'DETECTED')
+UNION ALL
+-- Both sides of the check above come from the same view, so if the annotations
+-- ever stop being extracted it reads 0 = 0 and PASSES while the master half of
+-- the published 83/83 has quietly stopped being evaluated. This is the floor:
+-- the delivery carries 28 inline annotations, and fewer means the extraction
+-- regressed, not that the data improved.
+SELECT 'master_labels_are_present',
+       28,
+       (SELECT COUNT(*) FROM silver.v_master_annotations)
+UNION ALL
+-- Same asymmetry on the transaction side, which had no canonical check at all:
+-- a label the expectation list does not recognise drops out of the LATERAL join
+-- and out of the denominator, leaving coverage at 100%.
+SELECT 'every_transaction_label_detected',
+       (SELECT COUNT(*) FROM silver.v_rule_coverage),
+       (SELECT COUNT(*) FROM silver.v_rule_coverage WHERE outcome = 'DETECTED')
+UNION ALL
+SELECT 'transaction_labels_are_present',
+       55,
+       (SELECT COUNT(*) FROM silver.v_rule_coverage)
+UNION ALL
+SELECT 'no_unclassified_labels',
+       0,
+       (SELECT COUNT(*) FROM silver.v_label_classification
+        WHERE classification = 'UNCLASSIFIED');
 
 SELECT check_name, expected, actual,
        IFF(actual = expected, 'PASS', 'FAIL') AS status

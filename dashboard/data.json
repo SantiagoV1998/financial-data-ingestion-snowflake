@@ -204,6 +204,12 @@
         "SEVERITY": "REJECT",
         "ENTITY": "transaction_item",
         "FINDINGS": 1
+    },
+    {
+        "RULE_CODE": "RAGGED_ROW",
+        "SEVERITY": "WARN",
+        "ENTITY": "customer",
+        "FINDINGS": 1
     }
 ],"by_client":
 [
@@ -215,7 +221,7 @@
     {
         "SOURCE_SYSTEM": "CLIENT_A",
         "SEVERITY": "WARN",
-        "FINDINGS": 129
+        "FINDINGS": 130
     },
     {
         "SOURCE_SYSTEM": "CLIENT_B",
@@ -473,7 +479,7 @@
     },
     {
         "STAGE": "quarantine_findings",
-        "ROW_COUNT": 170
+        "ROW_COUNT": 171
     },
     {
         "STAGE": "transactions_clean",

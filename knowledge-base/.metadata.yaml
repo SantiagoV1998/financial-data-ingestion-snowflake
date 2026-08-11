@@ -68,10 +68,10 @@ layers:
       products_clean: 37
       orders_clean: 40
       payments_clean: 20
-      dq_quarantine: 170
+      dq_quarantine: 171
   gold:
     status: complete
-    validation: sql/03_gold/03_validate_canonical.sql # 32 invariants, all passing
+    validation: sql/03_gold/03_validate_canonical.sql # 36 invariants, all passing
     tables:
       dim_customer: 43
       dim_product: 37

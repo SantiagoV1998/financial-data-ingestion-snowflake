@@ -64,9 +64,9 @@ the reasoning behind each decision, including the ones rejected, in
 |---|---|
 | Transactions | 57 parsed → **46 canonical** |
 | Line items | 58 parsed → **43 canonical** |
-| Quality findings | **170** — 11 reject, 159 warn |
+| Quality findings | **171** — 11 reject, 160 warn |
 | **Labelled anomalies detected** | **83 / 83 (100%)** — transactions *and* master data |
-| Canonical model invariants | **32 / 32 passing** |
+| Canonical model invariants | **36 / 36 passing** |
 
 ### The rules are measured, not asserted
 
@@ -124,7 +124,7 @@ snow sql -c <connection> -f sql/02_silver/06_deduplicate.sql
 
 snow sql -c <connection> -f sql/03_gold/01_canonical_ddl.sql
 snow sql -c <connection> -f sql/03_gold/02_transform_to_canonical.sql
-snow sql -c <connection> -f sql/03_gold/03_validate_canonical.sql      # 32 invariants
+snow sql -c <connection> -f sql/03_gold/03_validate_canonical.sql      # 36 invariants
 ```
 
 The **load** scripts are idempotent — each truncates before copying, and the

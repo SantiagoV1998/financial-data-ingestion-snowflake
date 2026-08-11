@@ -328,38 +328,38 @@
   <tbody><tr tabindex="0" title="XML fragments plus JSON">
       <th scope="row">Silver · transactions parsed</th>
       <td class="num">57</td>
-      <td class="track"><span class="bar" style="width:33.53%;background:var(--series-1)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:33.33%;background:var(--series-1)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="After deduplication and REJECT rules">
       <th scope="row">Silver · transactions clean</th>
       <td class="num">46</td>
-      <td class="track"><span class="bar" style="width:27.06%;background:var(--series-1)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:26.90%;background:var(--series-1)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="XML plus JSON">
       <th scope="row">Silver · line items parsed</th>
       <td class="num">58</td>
-      <td class="track"><span class="bar" style="width:34.12%;background:var(--series-1)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:33.92%;background:var(--series-1)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="Belonging to the surviving copy of each transaction">
       <th scope="row">Silver · line items clean</th>
       <td class="num">43</td>
-      <td class="track"><span class="bar" style="width:25.29%;background:var(--series-1)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:25.15%;background:var(--series-1)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="">
       <th scope="row">Silver · customers</th>
       <td class="num">43</td>
-      <td class="track"><span class="bar" style="width:25.29%;background:var(--series-1)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:25.15%;background:var(--series-1)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="">
       <th scope="row">Silver · products</th>
       <td class="num">37</td>
-      <td class="track"><span class="bar" style="width:21.76%;background:var(--series-1)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:21.64%;background:var(--series-1)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="">
       <th scope="row">Silver · orders</th>
       <td class="num">40</td>
-      <td class="track"><span class="bar" style="width:23.53%;background:var(--series-1)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:23.39%;background:var(--series-1)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="Client B only — Client A embeds payment per transaction">
       <th scope="row">Silver · payments</th>
       <td class="num">20</td>
-      <td class="track"><span class="bar" style="width:11.76%;background:var(--series-1)" aria-hidden="true"></span></td>
+      <td class="track"><span class="bar" style="width:11.70%;background:var(--series-1)" aria-hidden="true"></span></td>
     </tr><tr tabindex="0" title="Retained with payload, never deleted">
       <th scope="row">Quality findings</th>
-      <td class="num">170</td>
+      <td class="num">171</td>
       <td class="track"><span class="bar" style="width:100.00%;background:var(--series-1)" aria-hidden="true"></span></td>
     </tr></tbody>
 </table>
@@ -371,13 +371,13 @@
   <div class="tile"><div class="v">43</div><div class="k">Customers</div></div>
   <div class="tile"><div class="v">37</div><div class="k">Products</div></div>
   <div class="tile"><div class="v">57</div><div class="k">Payments</div></div>
-  <div class="tile"><div class="v">170</div><div class="k">Quality findings</div></div>
+  <div class="tile"><div class="v">171</div><div class="k">Quality findings</div></div>
 </div>
 
 <h2>Quality findings by rule</h2>
 <p class="legend">
   <span class="item"><span class="dot dot-reject"></span>Reject — cannot be represented (11)</span>
-  <span class="item"><span class="dot dot-warn"></span>Warn — loaded and flagged (159)</span>
+  <span class="item"><span class="dot dot-warn"></span>Warn — loaded and flagged (160)</span>
 </p>
 <p class="note">
   A negative quantity may be a return and a negative payment may be a refund, so those
@@ -557,6 +557,11 @@
       <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
       <td class="num">1</td>
       <td class="track"><span class="bar" style="width:4.35%;background:var(--status-critical)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="customer · WARN">
+      <th scope="row"><code>RAGGED_ROW</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-warning)" aria-hidden="true"></span></td>
     </tr></tbody>
 </table>
 </div>
@@ -579,7 +584,7 @@
       <h3><span class="dot" style="background:var(--series-1)"></span>Client A — XML + CSV</h3>
       <dl>
         <div><dt>Canonical transactions</dt><dd>37</dd></div>
-        <div><dt>Findings · warn</dt><dd>129</dd></div>
+        <div><dt>Findings · warn</dt><dd>130</dd></div>
         <div><dt>Findings · reject</dt><dd>10</dd></div>
         <div><dt>Payments not matching their own lines</dt>
              <dd>9 of 37</dd></div>

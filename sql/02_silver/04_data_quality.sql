@@ -378,7 +378,7 @@ WHERE  i.sku IS NOT NULL
    letting the quarantine describe a decision the pipeline did not make.
    ------------------------------------------------------------------------ */
 CREATE OR REPLACE VIEW v_all_customers AS
-SELECT source_system, customer_id, file_row_number,
+SELECT source_system, customer_id, file_row_number, source_file,
        NULLIF(TRIM(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')),'') AS customer_name,
        email, loyalty_tier AS tier_raw, source_annotation,
        OBJECT_CONSTRUCT('customer_id', customer_id, 'first_name', first_name,
@@ -386,21 +386,21 @@ SELECT source_system, customer_id, file_row_number,
                         'loyalty_tier', loyalty_tier, 'source_file', source_file) AS raw_payload
 FROM   stg_client_a_customers
 UNION ALL
-SELECT source_system, customer_id, file_row_number,
+SELECT source_system, customer_id, file_row_number, source_file,
        customer_name, email, segment, source_annotation,
        OBJECT_CONSTRUCT('customer_id', customer_id, 'customer_name', customer_name,
                         'email', email, 'segment', segment, 'source_file', source_file)
 FROM   stg_client_b_customers;
 
 CREATE OR REPLACE VIEW v_all_products AS
-SELECT source_system, sku, file_row_number, product_name, unit_price, unit_price_raw,
+SELECT source_system, sku, file_row_number, source_file, product_name, unit_price, unit_price_raw,
        currency, source_annotation,
        OBJECT_CONSTRUCT('sku', sku, 'product_name', product_name,
                         'unit_price', unit_price_raw, 'currency', currency,
                         'source_file', source_file) AS raw_payload
 FROM   stg_client_a_products
 UNION ALL
-SELECT source_system, sku, file_row_number, product_name, unit_price, unit_price_raw,
+SELECT source_system, sku, file_row_number, source_file, product_name, unit_price, unit_price_raw,
        currency, source_annotation,
        OBJECT_CONSTRUCT('sku', sku, 'product_name', product_name,
                         'unit_price', unit_price_raw, 'currency', currency,
@@ -408,86 +408,52 @@ SELECT source_system, sku, file_row_number, product_name, unit_price, unit_price
 FROM   stg_client_b_products;
 
 CREATE OR REPLACE VIEW v_all_master_orders AS
-SELECT source_system, order_id, file_row_number, customer_id, order_date,
+SELECT source_system, order_id, file_row_number, source_file, customer_id, order_date,
        order_date_raw, source_annotation,
        OBJECT_CONSTRUCT('order_id', order_id, 'customer_id', customer_id,
                         'order_date', order_date_raw, 'source_file', source_file) AS raw_payload
 FROM   stg_client_a_orders
 UNION ALL
-SELECT source_system, order_id, file_row_number, customer_id, order_date,
+SELECT source_system, order_id, file_row_number, source_file, customer_id, order_date,
        order_date_raw, source_annotation,
        OBJECT_CONSTRUCT('order_id', order_id, 'customer_id', customer_id,
                         'order_date', order_date_raw, 'source_file', source_file)
 FROM   stg_client_b_orders;
 
 CREATE OR REPLACE VIEW v_all_master_payments AS
-SELECT source_system, payment_id, file_row_number, order_id, amount, amount_raw,
+SELECT source_system, payment_id, file_row_number, source_file, order_id, amount, amount_raw,
        currency, status, source_annotation,
        OBJECT_CONSTRUCT('payment_id', payment_id, 'order_id', order_id,
                         'amount', amount_raw, 'status', status,
                         'source_file', source_file) AS raw_payload
 FROM   stg_client_b_payments;
 
-/* Duplicates — one finding per copy that deduplication will discard --------- */
-INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'customer', customer_id, file_row_number,
-       'DUPLICATE_CUSTOMER_ID',
-       'Customer id repeats; this copy at row ' || file_row_number || ' is discarded',
-       'WARN', raw_payload
-FROM   v_all_customers
--- Mirrors 06's WHERE customer_id IS NOT NULL, not just its tiebreaker. Snowflake
--- partitions all NULL keys together, so without this two key-less rows would be
--- recorded as one MISSING_* each PLUS one duplicate — 3 findings for 2 discarded
--- rows — and v_master_reconciliation would raise on a delivery it only describes.
-WHERE  customer_id IS NOT NULL
-QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, customer_id
-                           ORDER BY file_row_number DESC) > 1;
+/* ---------------------------------------------------------------------------
+   Which copy of a duplicated master row survives
+   ----------------------------------------------------------------------------
+   'Last row wins' put the DELIBERATELY CORRUPTED copy into gold. Product.csv
+   delivers C-SKU-011 twice: 59.99 in the body, and -59.99 in the trailing
+   anomaly block, annotated 'negative price'. The higher file_row_number won, so
+   dim_product published -59.99 and quarantined the clean 59.99 row as the
+   duplicate. Every CSV keeps its corrupted copies in that trailing block, so the
+   naive tiebreaker systematically preferred them.
 
-INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'product', sku, file_row_number,
-       'DUPLICATE_SKU',
-       'SKU repeats in the product master; this copy at row ' || file_row_number || ' is discarded',
-       'WARN', raw_payload
-FROM   v_all_products
--- Mirrors 06's WHERE sku IS NOT NULL, not just its tiebreaker. Snowflake
--- partitions all NULL keys together, so without this two key-less rows would be
--- recorded as one MISSING_* each PLUS one duplicate — 3 findings for 2 discarded
--- rows — and v_master_reconciliation would raise on a delivery it only describes.
-WHERE  sku IS NOT NULL
-QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, sku
-                           ORDER BY file_row_number DESC) > 1;
+   This is the same defect 06 fixed for transactions — where the last copy won
+   over the more complete one — and the master path kept the naive rule. The
+   ranking below is the master equivalent of completeness: prefer the copy the
+   quality rules found least wrong, and only then fall back to file position.
 
-INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'order', order_id, file_row_number,
-       'DUPLICATE_MASTER_ORDER_ID',
-       'Order id repeats in the order master; this copy at row ' || file_row_number || ' is discarded',
-       'WARN', raw_payload
-FROM   v_all_master_orders
--- Mirrors 06's WHERE order_id IS NOT NULL, not just its tiebreaker. Snowflake
--- partitions all NULL keys together, so without this two key-less rows would be
--- recorded as one MISSING_* each PLUS one duplicate — 3 findings for 2 discarded
--- rows — and v_master_reconciliation would raise on a delivery it only describes.
-WHERE  order_id IS NOT NULL
-QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, order_id
-                           ORDER BY file_row_number DESC) > 1;
-
-INSERT INTO dq_quarantine
-    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
-SELECT source_system, 'payment', payment_id, file_row_number,
-       'DUPLICATE_PAYMENT_ID',
-       'Payment id repeats; this copy at row ' || file_row_number || ' is discarded',
-       'WARN', raw_payload
-FROM   v_all_master_payments
--- Mirrors 06's WHERE payment_id IS NOT NULL, not just its tiebreaker. Snowflake
--- partitions all NULL keys together, so without this two key-less rows would be
--- recorded as one MISSING_* each PLUS one duplicate — 3 findings for 2 discarded
--- rows — and v_master_reconciliation would raise on a delivery it only describes.
-WHERE  payment_id IS NOT NULL
-QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, payment_id
-                           ORDER BY file_row_number DESC) > 1;
+   It must be computed BEFORE the DUPLICATE_* rules, because those rules name
+   the copy that will be discarded, and 06 must break the tie the same way. Both
+   read this view, so they cannot drift apart.
+   ------------------------------------------------------------------------ */
+CREATE OR REPLACE VIEW v_master_defect_count AS
+SELECT source_system, entity, natural_key, document_position AS file_row_number,
+       COUNT(*) AS defect_count
+FROM   dq_quarantine
+WHERE  entity IN ('customer', 'product', 'order', 'payment')
+  AND  rule_code NOT LIKE 'DUPLICATE%'
+GROUP  BY source_system, entity, natural_key, document_position;
 
 /* Missing business keys — REJECT, because there is nothing to key the record on.
    This delivery has none; the rules exist because deduplication's
@@ -609,6 +575,128 @@ SELECT source_system, 'order', order_id, file_row_number,
        'Order date absent or unparseable: ' || COALESCE(order_date_raw, '(absent)'),
        'WARN', raw_payload
 FROM   v_all_master_orders WHERE order_date IS NULL;
+
+/* Ragged rows — the delivery ends a row before its last column ------------
+   CUST-A-0040 is delivered as `CUST-A-0040,,,,,false` — six fields for seven
+   columns — so every value shifts one place left and `false`, which belongs to
+   is_active, lands in signup_source. The annotation stripper removed the
+   `<-- null-heavy row` label cleanly, so the row read as merely empty and
+   dim_customer published 'false' as a genuine signup channel.
+
+   Detected by the shape the shift leaves behind: the final column is absent
+   while the one before it holds the final column's vocabulary. There is no
+   field count to check against — the CSVs are loaded straight into typed
+   columns, and bronze.raw_text_lines covers only the XML and JSON. */
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'customer', customer_id, file_row_number,
+       'RAGGED_ROW',
+       'Row ends early: is_active is absent and signup_source holds '
+       || signup_source || ', which belongs to is_active',
+       'WARN',
+       OBJECT_CONSTRUCT('customer_id', customer_id, 'signup_source', signup_source,
+                        'source_file', source_file)
+FROM   stg_client_a_customers
+WHERE  is_active_raw IS NULL
+  AND  LOWER(signup_source) IN ('true', 'false');
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'product', sku, file_row_number,
+       'RAGGED_ROW',
+       'Row ends early: is_active is absent and currency holds '
+       || currency || ', which belongs to is_active',
+       'WARN',
+       OBJECT_CONSTRUCT('sku', sku, 'currency', currency, 'source_file', source_file)
+FROM   (SELECT * FROM stg_client_a_products
+        UNION ALL
+        SELECT * FROM stg_client_b_products) AS p
+WHERE  is_active_raw IS NULL
+  AND  LOWER(currency) IN ('true', 'false');
+
+/* Duplicates — one finding per copy that deduplication will discard.
+   ----------------------------------------------------------------------------
+   The survivor is the copy the other rules found least wrong, then the later
+   file row. 06 breaks the tie by joining the same v_master_defect_count, so the
+   copy named here is the copy actually discarded — the two cannot drift.
+
+   WHERE <id> IS NOT NULL mirrors 06's filter, not just its tiebreaker: Snowflake
+   partitions all NULL keys together, so without it two key-less rows would be
+   recorded as one MISSING_* each PLUS one duplicate — 3 findings for 2 discarded
+   rows — and v_master_reconciliation would raise on a delivery it only describes.
+   ------------------------------------------------------------------------ */
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT m.source_system, 'customer', m.customer_id, m.file_row_number,
+       'DUPLICATE_CUSTOMER_ID',
+       'Customer id repeats; this copy at row ' || m.file_row_number || ' is discarded',
+       'WARN', m.raw_payload
+FROM      v_all_customers AS m
+LEFT JOIN v_master_defect_count AS d
+       ON m.source_system   = d.source_system
+      AND m.customer_id = d.natural_key
+      AND m.file_row_number = d.file_row_number
+      AND d.entity          = 'customer'
+WHERE  m.customer_id IS NOT NULL
+QUALIFY ROW_NUMBER() OVER (PARTITION BY m.source_system, m.customer_id
+                           ORDER BY COALESCE(d.defect_count, 0) ASC,
+                                    m.file_row_number DESC,
+                                    m.source_file DESC) > 1;
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT m.source_system, 'product', m.sku, m.file_row_number,
+       'DUPLICATE_SKU',
+       'SKU repeats in the product master; this copy at row ' || m.file_row_number || ' is discarded',
+       'WARN', m.raw_payload
+FROM      v_all_products AS m
+LEFT JOIN v_master_defect_count AS d
+       ON m.source_system   = d.source_system
+      AND m.sku = d.natural_key
+      AND m.file_row_number = d.file_row_number
+      AND d.entity          = 'product'
+WHERE  m.sku IS NOT NULL
+QUALIFY ROW_NUMBER() OVER (PARTITION BY m.source_system, m.sku
+                           ORDER BY COALESCE(d.defect_count, 0) ASC,
+                                    m.file_row_number DESC,
+                                    m.source_file DESC) > 1;
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT m.source_system, 'order', m.order_id, m.file_row_number,
+       'DUPLICATE_MASTER_ORDER_ID',
+       'Order id repeats in the order master; this copy at row ' || m.file_row_number || ' is discarded',
+       'WARN', m.raw_payload
+FROM      v_all_master_orders AS m
+LEFT JOIN v_master_defect_count AS d
+       ON m.source_system   = d.source_system
+      AND m.order_id = d.natural_key
+      AND m.file_row_number = d.file_row_number
+      AND d.entity          = 'order'
+WHERE  m.order_id IS NOT NULL
+QUALIFY ROW_NUMBER() OVER (PARTITION BY m.source_system, m.order_id
+                           ORDER BY COALESCE(d.defect_count, 0) ASC,
+                                    m.file_row_number DESC,
+                                    m.source_file DESC) > 1;
+
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, rule_code, rule_detail, severity, raw_payload)
+SELECT m.source_system, 'payment', m.payment_id, m.file_row_number,
+       'DUPLICATE_PAYMENT_ID',
+       'Payment id repeats; this copy at row ' || m.file_row_number || ' is discarded',
+       'WARN', m.raw_payload
+FROM      v_all_master_payments AS m
+LEFT JOIN v_master_defect_count AS d
+       ON m.source_system   = d.source_system
+      AND m.payment_id = d.natural_key
+      AND m.file_row_number = d.file_row_number
+      AND d.entity          = 'payment'
+WHERE  m.payment_id IS NOT NULL
+QUALIFY ROW_NUMBER() OVER (PARTITION BY m.source_system, m.payment_id
+                           ORDER BY COALESCE(d.defect_count, 0) ASC,
+                                    m.file_row_number DESC,
+                                    m.source_file DESC) > 1;
 
 /* ---------------------------------------------------------------------------
    Summary

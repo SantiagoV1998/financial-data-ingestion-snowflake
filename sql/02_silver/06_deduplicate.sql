@@ -60,7 +60,9 @@ FROM   (SELECT v.*,
                                    WHERE q.entity            = 'transaction_item'
                                      AND q.severity          = 'REJECT'
                                      AND q.source_system     = i.source_system
-                                     AND q.natural_key       = i.transaction_id
+                                     AND (q.natural_key = i.transaction_id
+                                          OR (q.natural_key IS NULL
+                                              AND i.transaction_id IS NULL))
                                      AND q.document_position = i.document_position
                                      AND q.line_number       = i.line_number)
                  ) AS line_item_count
@@ -111,6 +113,14 @@ WHERE  i.raw_payload IS NOT NULL
          WHERE q.entity            = 'transaction_item'
            AND q.severity          = 'REJECT'
            AND q.source_system     = i.source_system
+           -- Matched on natural_key too, so this predicate is identical to the
+           -- one the completeness tiebreaker uses above. They differed by this
+           -- column: for a rejected line whose parent transaction has no id,
+           -- natural_key is NULL, so the tiebreaker counted the line as
+           -- readable while this dropped it — the two disagreeing about the
+           -- same row. Equal-or-NULL because NULL = NULL is never true.
+           AND (q.natural_key = i.transaction_id
+                OR (q.natural_key IS NULL AND i.transaction_id IS NULL))
            AND q.document_position = i.document_position
            AND q.line_number       = i.line_number
        )
@@ -126,70 +136,165 @@ QUALIFY ROW_NUMBER() OVER (
    Master data — deduplicated on the same principle
    ----------------------------------------------------------------------------
    The customer master genuinely contains repeated ids (CUST-A-0001 twice),
-   which is what makes an unguarded join multiply rows. File position is the
-   tiebreaker for the same reason as above.
+   which is what makes an unguarded join multiply rows.
+
+   The tiebreaker is LEAST WRONG FIRST, then file position — the master
+   equivalent of the completeness rule the transaction path uses above, and for
+   the same reason. Plain 'last row wins' published the deliberately corrupted
+   copy: Product.csv delivers C-SKU-011 as 59.99 in the body and -59.99 in the
+   trailing anomaly block, so dim_product carried -59.99 while the clean row was
+   quarantined as the duplicate. Every CSV keeps its corrupted copies in that
+   trailing block, so the naive rule preferred them systematically.
+
+   defect_count comes from v_master_defect_count, which 04 builds from the
+   findings its own rules raised — and 04's DUPLICATE_* rules break the tie by
+   reading the same view, so the copy quarantine names as discarded is the copy
+   actually discarded here.
    ------------------------------------------------------------------------ */
 CREATE OR REPLACE TABLE customers_clean AS
-SELECT source_system, customer_id,
-       NULLIF(TRIM(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')), '') AS customer_name,
-       first_name, last_name, email,
-       loyalty_tier                       AS tier_raw,
-       signup_source, is_active, source_file, file_row_number
-FROM   stg_client_a_customers
-WHERE  customer_id IS NOT NULL
-QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, customer_id
-                           ORDER BY file_row_number DESC) = 1
+SELECT m.source_system, m.customer_id,
+       NULLIF(TRIM(COALESCE(m.first_name, '') || ' ' || COALESCE(m.last_name, '')), '') AS customer_name,
+       m.first_name, m.last_name, m.email,
+       m.loyalty_tier                       AS tier_raw,
+       -- NULL when the row ended early. RAGGED_ROW records that CUST-A-0040
+       -- shifted one column left, so this field holds is_active's 'false'.
+       -- Publishing it would assert a signup channel the client never sent —
+       -- the same reason a missing payment status is not defaulted to UNKNOWN.
+       IFF(m.is_active_raw IS NULL AND LOWER(m.signup_source) IN ('true', 'false'),
+           NULL, m.signup_source)      AS signup_source,
+       m.is_active, m.source_file, m.file_row_number
+FROM   stg_client_a_customers AS m
+LEFT JOIN v_master_defect_count AS d
+       ON m.source_system   = d.source_system
+      AND m.customer_id = d.natural_key
+      AND m.file_row_number = d.file_row_number
+      AND d.entity          = 'customer'
+WHERE  m.customer_id IS NOT NULL
+QUALIFY ROW_NUMBER() OVER (PARTITION BY m.source_system, m.customer_id
+                           ORDER BY COALESCE(d.defect_count, 0) ASC,
+                                    -- source_file because METADATA$FILE_ROW_NUMBER
+                                    -- restarts at each file: Client A already
+                                    -- arrives split across seven, so a master
+                                    -- entity delivered in two files would tie
+                                    -- and ROW_NUMBER would pick arbitrarily.
+                                    m.file_row_number DESC, m.source_file DESC) = 1
 UNION ALL
-SELECT source_system, customer_id,
-       customer_name,
-       NULL AS first_name, NULL AS last_name, email,
-       segment                            AS tier_raw,
-       NULL AS signup_source, is_active, source_file, file_row_number
-FROM   stg_client_b_customers
-WHERE  customer_id IS NOT NULL
-QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, customer_id
-                           ORDER BY file_row_number DESC) = 1;
+SELECT m.source_system, m.customer_id,
+       m.customer_name,
+       NULL AS first_name, NULL AS last_name, m.email,
+       m.segment                            AS tier_raw,
+       NULL AS signup_source, m.is_active, m.source_file, m.file_row_number
+FROM   stg_client_b_customers AS m
+LEFT JOIN v_master_defect_count AS d
+       ON m.source_system   = d.source_system
+      AND m.customer_id = d.natural_key
+      AND m.file_row_number = d.file_row_number
+      AND d.entity          = 'customer'
+WHERE  m.customer_id IS NOT NULL
+QUALIFY ROW_NUMBER() OVER (PARTITION BY m.source_system, m.customer_id
+                           ORDER BY COALESCE(d.defect_count, 0) ASC,
+                                    -- source_file because METADATA$FILE_ROW_NUMBER
+                                    -- restarts at each file: Client A already
+                                    -- arrives split across seven, so a master
+                                    -- entity delivered in two files would tie
+                                    -- and ROW_NUMBER would pick arbitrarily.
+                                    m.file_row_number DESC, m.source_file DESC) = 1;
 
 CREATE OR REPLACE TABLE products_clean AS
-SELECT source_system, sku, product_name, category, unit_price, currency,
-       is_active, source_file, file_row_number
-FROM   stg_client_a_products
-WHERE  sku IS NOT NULL
-QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, sku
-                           ORDER BY file_row_number DESC) = 1
+SELECT m.source_system, m.sku, m.product_name, m.category, m.unit_price, m.currency,
+       m.is_active, m.source_file, m.file_row_number
+FROM   stg_client_a_products AS m
+LEFT JOIN v_master_defect_count AS d
+       ON m.source_system   = d.source_system
+      AND m.sku = d.natural_key
+      AND m.file_row_number = d.file_row_number
+      AND d.entity          = 'product'
+WHERE  m.sku IS NOT NULL
+QUALIFY ROW_NUMBER() OVER (PARTITION BY m.source_system, m.sku
+                           ORDER BY COALESCE(d.defect_count, 0) ASC,
+                                    -- source_file because METADATA$FILE_ROW_NUMBER
+                                    -- restarts at each file: Client A already
+                                    -- arrives split across seven, so a master
+                                    -- entity delivered in two files would tie
+                                    -- and ROW_NUMBER would pick arbitrarily.
+                                    m.file_row_number DESC, m.source_file DESC) = 1
 UNION ALL
-SELECT source_system, sku, product_name, category, unit_price, currency,
-       is_active, source_file, file_row_number
-FROM   stg_client_b_products
-WHERE  sku IS NOT NULL
-QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, sku
-                           ORDER BY file_row_number DESC) = 1;
+SELECT m.source_system, m.sku, m.product_name, m.category, m.unit_price, m.currency,
+       m.is_active, m.source_file, m.file_row_number
+FROM   stg_client_b_products AS m
+LEFT JOIN v_master_defect_count AS d
+       ON m.source_system   = d.source_system
+      AND m.sku = d.natural_key
+      AND m.file_row_number = d.file_row_number
+      AND d.entity          = 'product'
+WHERE  m.sku IS NOT NULL
+QUALIFY ROW_NUMBER() OVER (PARTITION BY m.source_system, m.sku
+                           ORDER BY COALESCE(d.defect_count, 0) ASC,
+                                    -- source_file because METADATA$FILE_ROW_NUMBER
+                                    -- restarts at each file: Client A already
+                                    -- arrives split across seven, so a master
+                                    -- entity delivered in two files would tie
+                                    -- and ROW_NUMBER would pick arbitrarily.
+                                    m.file_row_number DESC, m.source_file DESC) = 1;
 
 CREATE OR REPLACE TABLE orders_clean AS
-SELECT source_system, order_id, customer_id, order_date, order_status, channel,
-       source_file, file_row_number
-FROM   stg_client_a_orders
-WHERE  order_id IS NOT NULL
-QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, order_id
-                           ORDER BY file_row_number DESC) = 1
+SELECT m.source_system, m.order_id, m.customer_id, m.order_date, m.order_status, m.channel,
+       m.source_file, m.file_row_number
+FROM   stg_client_a_orders AS m
+LEFT JOIN v_master_defect_count AS d
+       ON m.source_system   = d.source_system
+      AND m.order_id = d.natural_key
+      AND m.file_row_number = d.file_row_number
+      AND d.entity          = 'order'
+WHERE  m.order_id IS NOT NULL
+QUALIFY ROW_NUMBER() OVER (PARTITION BY m.source_system, m.order_id
+                           ORDER BY COALESCE(d.defect_count, 0) ASC,
+                                    -- source_file because METADATA$FILE_ROW_NUMBER
+                                    -- restarts at each file: Client A already
+                                    -- arrives split across seven, so a master
+                                    -- entity delivered in two files would tie
+                                    -- and ROW_NUMBER would pick arbitrarily.
+                                    m.file_row_number DESC, m.source_file DESC) = 1
 UNION ALL
-SELECT source_system, order_id, customer_id, order_date, order_status, channel,
-       source_file, file_row_number
-FROM   stg_client_b_orders
-WHERE  order_id IS NOT NULL
-QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, order_id
-                           ORDER BY file_row_number DESC) = 1;
+SELECT m.source_system, m.order_id, m.customer_id, m.order_date, m.order_status, m.channel,
+       m.source_file, m.file_row_number
+FROM   stg_client_b_orders AS m
+LEFT JOIN v_master_defect_count AS d
+       ON m.source_system   = d.source_system
+      AND m.order_id = d.natural_key
+      AND m.file_row_number = d.file_row_number
+      AND d.entity          = 'order'
+WHERE  m.order_id IS NOT NULL
+QUALIFY ROW_NUMBER() OVER (PARTITION BY m.source_system, m.order_id
+                           ORDER BY COALESCE(d.defect_count, 0) ASC,
+                                    -- source_file because METADATA$FILE_ROW_NUMBER
+                                    -- restarts at each file: Client A already
+                                    -- arrives split across seven, so a master
+                                    -- entity delivered in two files would tie
+                                    -- and ROW_NUMBER would pick arbitrarily.
+                                    m.file_row_number DESC, m.source_file DESC) = 1;
 
 /* Client B only — Client A embeds payment in the transaction, with no id and
    no status. Gold reconciles the two shapes without inventing the missing
    fields. */
 CREATE OR REPLACE TABLE payments_clean AS
-SELECT source_system, payment_id, order_id, payment_method, amount, currency, status,
-       source_file, file_row_number
-FROM   stg_client_b_payments
-WHERE  payment_id IS NOT NULL
-QUALIFY ROW_NUMBER() OVER (PARTITION BY source_system, payment_id
-                           ORDER BY file_row_number DESC) = 1;
+SELECT m.source_system, m.payment_id, m.order_id, m.payment_method, m.amount, m.currency, m.status,
+       m.source_file, m.file_row_number
+FROM   stg_client_b_payments AS m
+LEFT JOIN v_master_defect_count AS d
+       ON m.source_system   = d.source_system
+      AND m.payment_id = d.natural_key
+      AND m.file_row_number = d.file_row_number
+      AND d.entity          = 'payment'
+WHERE  m.payment_id IS NOT NULL
+QUALIFY ROW_NUMBER() OVER (PARTITION BY m.source_system, m.payment_id
+                           ORDER BY COALESCE(d.defect_count, 0) ASC,
+                                    -- source_file because METADATA$FILE_ROW_NUMBER
+                                    -- restarts at each file: Client A already
+                                    -- arrives split across seven, so a master
+                                    -- entity delivered in two files would tie
+                                    -- and ROW_NUMBER would pick arbitrarily.
+                                    m.file_row_number DESC, m.source_file DESC) = 1;
 
 /* ---------------------------------------------------------------------------
    Master-data reconciliation — every staged row is either kept or accounted for

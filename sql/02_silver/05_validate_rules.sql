@@ -288,9 +288,11 @@ SELECT a.entity, a.source_system, a.natural_key, a.source_annotation AS label,
               THEN ARRAY_CONSTRUCT('INVALID_EMAIL', 'MISSING_CUSTOMER_NAME')
          WHEN 'customers|missing email'                THEN ARRAY_CONSTRUCT('MISSING_MASTER_EMAIL')
          WHEN 'customers|null-heavy row'
-              THEN ARRAY_CONSTRUCT('MISSING_CUSTOMER_NAME', 'MISSING_MASTER_EMAIL')
+              THEN ARRAY_CONSTRUCT('RAGGED_ROW', 'MISSING_CUSTOMER_NAME',
+                                   'MISSING_MASTER_EMAIL')
          WHEN 'customers|null-heavy anomaly row'
-              THEN ARRAY_CONSTRUCT('MISSING_CUSTOMER_NAME', 'MISSING_MASTER_EMAIL')
+              THEN ARRAY_CONSTRUCT('RAGGED_ROW', 'MISSING_CUSTOMER_NAME',
+                                   'MISSING_MASTER_EMAIL')
          WHEN 'orders|duplicate'                       THEN ARRAY_CONSTRUCT('DUPLICATE_MASTER_ORDER_ID')
          WHEN 'orders|duplicate customer'
               THEN ARRAY_CONSTRUCT('ORDER_REFERENCES_DUPLICATED_CUSTOMER')

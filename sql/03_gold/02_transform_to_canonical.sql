@@ -214,8 +214,15 @@ WITH li AS (SELECT source_system, transaction_key,
                   -- 1, and all-NULL counted as 0 — both "comparable". An unknown
                   -- currency is not evidence of a shared one, so a line missing
                   -- it counts against uniformity.
+                  -- COUNT(DISTINCT ...) ignores NULLs, so one USD line beside
+                  -- one whose currency the cascade could not resolve counted as
+                  -- 1. Adding the NULL flag fixed the MIXED case but not the
+                  -- all-NULL one: 0 distinct + 1 flag = 1, still "comparable"
+                  -- with no currency known anywhere. Counting a NULL as its own
+                  -- value covers both — one currency means exactly one, known.
                   COUNT(DISTINCT currency)
-                    + MAX(IFF(currency IS NULL, 1, 0))  AS currency_count
+                    + MAX(IFF(currency IS NULL, 1, 0))
+                    + IFF(COUNT(currency) = 0, 1, 0)    AS currency_count
            FROM   fact_order_item
            GROUP  BY source_system, transaction_key
 ),

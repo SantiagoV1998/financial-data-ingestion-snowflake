@@ -46,8 +46,8 @@ auto-suspend), schemas `bronze` / `silver` / `gold`, all owned by the
 | Layer | State |
 |---|---|
 | **Bronze** | 1701 text lines from the 8 unparseable files + 148 master rows. 14 invariants asserted, all passing. |
-| **Silver** | 57 transactions parsed → 46 clean; 58 line items → 43 clean; 170 quality findings quarantined. |
-| **Gold** | 46 transactions, 43 line items, 43 customers, 37 products, 40 orders, 57 payments. 32 invariants asserted, all passing. |
+| **Silver** | 57 transactions parsed → 46 clean; 58 line items → 43 clean; 171 quality findings quarantined. |
+| **Gold** | 46 transactions, 43 line items, 43 customers, 37 products, 40 orders, 57 payments. 36 invariants asserted, all passing. |
 
 **Rule coverage against the provider's own labels: 83/83**, across both clients —
 Client A's XML comments and Client B's JSON `//` comments alike. Every label

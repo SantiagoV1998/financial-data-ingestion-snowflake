@@ -263,8 +263,21 @@ python3 -c "import json; json.load(open('dashboard/data.json'))" 2>/dev/null \
 # figures the warehouse had stopped producing, while this step reported green.
 # Both artefacts are regenerated into a scratch copy and compared; the working
 # tree is restored either way, so verifying stays read-only.
+# trap, not just a cp at the end: export.sh and build.py overwrite the real
+# files, so a Ctrl-C or a hung snow between here and the restore would leave the
+# developer's tree holding regenerated artefacts. The claim was that verifying
+# stays read-only; without the trap it was only true on the happy path.
 dash_tmp=$(mktemp -d)
-cp dashboard/data.json dashboard/index.html "$dash_tmp/"
+restore_dashboard() {
+    [ -f "$dash_tmp/data.json" ]  && cp "$dash_tmp/data.json"  dashboard/data.json
+    [ -f "$dash_tmp/index.html" ] && cp "$dash_tmp/index.html" dashboard/index.html
+    rm -rf "$dash_tmp"
+    trap - EXIT INT TERM
+}
+trap restore_dashboard EXIT INT TERM
+if ! cp dashboard/data.json dashboard/index.html "$dash_tmp/"; then
+    bad "could not snapshot the dashboard before regenerating it"
+fi
 if ./dashboard/export.sh "$CONN" >/dev/null 2>&1 && python3 dashboard/build.py >/dev/null 2>&1; then
     diff -q "$dash_tmp/data.json" dashboard/data.json >/dev/null 2>&1 \
         && ok "data.json matches the warehouse" \
@@ -275,8 +288,7 @@ if ./dashboard/export.sh "$CONN" >/dev/null 2>&1 && python3 dashboard/build.py >
 else
     bad "dashboard could not be regenerated"
 fi
-cp "$dash_tmp/data.json" "$dash_tmp/index.html" dashboard/
-rm -rf "$dash_tmp"
+restore_dashboard
 
 head_ "9 · Lint"
 sqlfluff lint sql/ >/dev/null 2>&1 && ok "sqlfluff clean" || bad "sqlfluff violations"

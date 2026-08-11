@@ -42,7 +42,7 @@ set, and the client decides.
 
 ## The rules
 
-**11 REJECT findings · 159 WARN findings · 170 total**
+**11 REJECT findings · 160 WARN findings · 171 total**
 
 ### Transaction level
 
@@ -84,6 +84,7 @@ that make each discard a recorded fact.
 
 | Rule | Severity | Found | Why this severity |
 |---|---|---|---|
+| `RAGGED_ROW` | WARN | 1 | The row ends before its last column, so every value shifts left — see below |
 | `DUPLICATE_CUSTOMER_ID` | WARN | 2 | The row is discarded by deduplication; the finding is what makes that visible |
 | `MISSING_CUSTOMER_NAME` | WARN | 3 | Loads; the id carries the identity |
 | `MISSING_MASTER_EMAIL` | WARN | 5 | Loads; absence is a fact about the delivery |
@@ -103,7 +104,23 @@ that make each discard a recorded fact.
 | `MISSING_PAYMENT_ID` | REJECT | 0 | Latent — as above |
 | `MISSING_LIST_PRICE` | WARN | 0 | Latent — a NULL master price cannot be a fallback for a line missing one |
 
-**93 transaction + 38 line-item + 39 master = 170.** The four `MISSING_*` REJECT
+`CUST-A-0040` is delivered as `CUST-A-0040,,,,,false` — six fields for seven
+columns. Every value shifts one place left, so `false`, which belongs to
+`is_active`, lands in `signup_source`. The annotation stripper removed the
+`<-- null-heavy row` label cleanly, so the row read as merely empty and
+`dim_customer` published `'false'` as a genuine signup channel. The shifted value
+is no longer published: a channel the client never sent is not a fact, and
+NULL says so.
+
+Which copy of a duplicated master row survives is decided the same way the
+transaction path decides it — **least wrong first**, then file position. Plain
+"last row wins" published the deliberately corrupted copy: `Product.csv`
+delivers `C-SKU-011` as `59.99` in the body and `-59.99` in the trailing anomaly
+block, so `dim_product` carried `-59.99` while the clean row was the one
+quarantined as the duplicate. Every CSV keeps its corrupted copies in that
+trailing block, so the naive rule preferred them systematically.
+
+**93 transaction + 38 line-item + 40 master = 171.** The four `MISSING_*` REJECT
 rules find nothing in this delivery: every master row carries its business key,
 verified across all seven staging tables. They exist because deduplication's
 `WHERE <id> IS NOT NULL` would otherwise discard such a row without a trace.
@@ -309,7 +326,7 @@ Nothing detected it: there was no `ORPHAN_ORDER` rule and no
 `fact_transaction_order_resolves` check — while the validation script's own header
 said "what must never happen is a key that points at nothing".
 
-Both are now asserted. The canonical validation grew from 20 invariants to 32 as
+Both are now asserted. The canonical validation grew from 20 invariants to 36 as
 each defect was closed — the last three when the master-data path was audited
 and found to have none of the treatment the transaction path had received.
 
