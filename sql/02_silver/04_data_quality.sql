@@ -206,7 +206,7 @@ WITH d AS (
            UNION ALL
            SELECT source_system, customer_id FROM stg_client_b_customers) AS m
     WHERE m.customer_id IS NOT NULL
-    GROUP BY source_system, customer_id
+    GROUP BY m.source_system, m.customer_id
     HAVING COUNT(*) > 1
 )
 SELECT t.source_system, 'transaction', t.transaction_id,
@@ -315,5 +315,5 @@ GROUP  BY source_system, entity, severity, rule_code;
 
 SELECT severity, rule_code, entity, SUM(findings) AS findings
 FROM   v_dq_summary
-GROUP  BY 1, 2, 3
+GROUP  BY severity, rule_code, entity
 ORDER  BY severity ASC, findings DESC;

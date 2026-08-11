@@ -152,7 +152,7 @@ SELECT expected_rule,
        SUM(IFF(outcome = 'DETECTED', 1, 0)) AS detected,
        SUM(IFF(outcome = 'MISSED', 1, 0))   AS missed
 FROM   v_rule_coverage
-GROUP  BY 1
+GROUP  BY expected_rule
 ORDER  BY missed DESC, labelled DESC;
 
 SELECT 'TOTAL' AS scope,
@@ -190,4 +190,4 @@ FROM v_ground_truth AS g;
 
 SELECT classification, COUNT(*) AS labels
 FROM   v_label_classification
-GROUP  BY 1 ORDER BY labels DESC;
+GROUP  BY classification ORDER BY labels DESC;

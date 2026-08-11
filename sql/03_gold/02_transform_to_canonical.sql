@@ -132,7 +132,7 @@ INSERT INTO fact_order_item
 WITH t AS (SELECT source_system, transaction_id, order_id,
                   MAX(payment_currency) AS currency_hint
            FROM   silver.transactions_clean
-           GROUP  BY 1, 2, 3
+           GROUP  BY source_system, transaction_id, order_id
 )
 SELECT
     MD5(i.source_system || '|' || i.transaction_id || '|' || i.line_number),
@@ -174,7 +174,7 @@ WITH li AS (SELECT source_system, transaction_key,
                   SUM(line_amount)          AS gross_line_amount,
                   MAX(currency)             AS currency
            FROM   fact_order_item
-           GROUP  BY 1, 2
+           GROUP  BY source_system, transaction_key
 )
 SELECT
     MD5(t.source_system || '|' || t.transaction_id),
@@ -280,4 +280,4 @@ UNION ALL
 SELECT 'fact_payment',     COUNT(*) FROM fact_payment
 UNION ALL
 SELECT 'dq_summary',       COUNT(*) FROM dq_summary
-ORDER BY 1;
+ORDER BY table_name;
