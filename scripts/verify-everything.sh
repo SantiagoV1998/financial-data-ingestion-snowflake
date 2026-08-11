@@ -100,20 +100,42 @@ head_ "4 · Assertions the pipeline makes about itself"
 # Captured once and checked for FAIL, not just counted for PASS. Counting passes
 # alone is the asymmetry already fixed for gold below: add a 15th check and
 # 14 PASS + 1 FAIL would still have read as green.
+#
+# Zero FAIL is NOT sufficient. If snow is missing, the connection is wrong or the
+# report format changes, the output contains neither marker — so bf=0 and the
+# gate reported "0 invariants pass, 0 fail" as GREEN. That is precisely the
+# failure this file exists to catch, reproduced inside the checker itself. The
+# pass count must therefore be positive AND match what the view declares, so a
+# partially printed report cannot pass either.
 bout=$(snow sql -c "$CONN" -f sql/01_bronze/05_validate_bronze.sql 2>&1)
 b=$(printf '%s' "$bout" | grep -c '| PASS')
 bf=$(printf '%s' "$bout" | grep -c '| FAIL')
-[ "$bf" = "0" ] && ok "bronze: $b invariants pass, 0 fail" || bad "bronze: $bf FAILING"
+b_exp=$(qv "SELECT COUNT(*) FROM bronze.v_bronze_validation")
+if [ "$bf" = "0" ] && [ "$b" = "$b_exp" ] && [ "$b" -gt 0 ] 2>/dev/null; then
+    ok "bronze: $b invariants pass, 0 fail"
+else
+    bad "bronze: $b passed of $b_exp expected, $bf failing"
+fi
 # Captured ONCE. Running it twice and grepping each run separately reported a
 # pass count and a fail count from two different executions.
 gout=$(snow sql -c "$CONN" -f sql/03_gold/03_validate_canonical.sql 2>&1)
 g=$(printf '%s' "$gout" | grep -c '| PASS')
 gf=$(printf '%s' "$gout" | grep -c '| FAIL')
-[ "$gf" = "0" ] && ok "gold: $g invariants pass, 0 fail" || bad "gold: $gf FAILING"
+g_exp=$(qv "SELECT COUNT(*) FROM gold.v_canonical_validation")
+if [ "$gf" = "0" ] && [ "$g" = "$g_exp" ] && [ "$g" -gt 0 ] 2>/dev/null; then
+    ok "gold: $g invariants pass, 0 fail"
+else
+    bad "gold: $g passed of $g_exp expected, $gf failing"
+fi
 expect "unclassified ground-truth labels" "0" \
        "SELECT COUNT(*) FROM silver.v_label_classification WHERE classification='UNCLASSIFIED'"
 expect "coverage misses" "0" \
        "SELECT COUNT(*) FROM silver.v_rule_coverage WHERE outcome='MISSED'"
+expect "master coverage misses" "0" \
+       "SELECT COUNT(*) FROM silver.v_master_rule_coverage WHERE outcome='MISSED'"
+expect "master rows discarded without a finding" "0" \
+       "SELECT COUNT(*) FROM silver.v_master_reconciliation
+        WHERE discarded_actual <> discarded_and_recorded"
 
 head_ "5 · Referential integrity actually holds"
 expect "transactions with a dangling order_key" "0" \
@@ -153,7 +175,9 @@ check_doc() {  # check_doc <file> <regex> <expected value from db>
     if grep -qE "$2" "$1"; then ok "$1 states $3"; else bad "$1 does NOT state $3"; fi
 }
 inv=$(qv "SELECT COUNT(*) FROM gold.v_canonical_validation")
-cov=$(qv "SELECT COUNT(*) FROM silver.v_rule_coverage")
+# One denominator: transactions AND master. Reading only v_rule_coverage is how
+# the published figure stayed at 55/55 while 28 master labels had no rule at all.
+cov=$(qv "SELECT SUM(labelled) FROM silver.v_total_coverage")
 findings=$(qv "SELECT COUNT(*) FROM silver.dq_quarantine")
 items=$(qv "SELECT COUNT(*) FROM gold.fact_order_item")
 check_doc README.md "$inv / $inv passing"    "$inv invariants"
@@ -197,8 +221,26 @@ stray=$(awk '/^\| First published/,/^\| \*\*Current\*\*/ {next} /[0-9]+\.[0-9]{2
 head_ "8 · The dashboard can be rebuilt from the repository"
 python3 -c "import json; json.load(open('dashboard/data.json'))" 2>/dev/null \
     && ok "data.json parses" || bad "data.json is NOT valid JSON"
-python3 dashboard/build.py >/dev/null 2>&1 \
-    && ok "build.py regenerates index.html" || bad "build.py FAILED"
+# Running build.py and checking its exit code proves it runs, not that what it
+# publishes is current. data.json was committed and nothing re-exported it, so a
+# rule change left the dashboard — the link at the top of the README — stating
+# figures the warehouse had stopped producing, while this step reported green.
+# Both artefacts are regenerated into a scratch copy and compared; the working
+# tree is restored either way, so verifying stays read-only.
+dash_tmp=$(mktemp -d)
+cp dashboard/data.json dashboard/index.html "$dash_tmp/"
+if ./dashboard/export.sh "$CONN" >/dev/null 2>&1 && python3 dashboard/build.py >/dev/null 2>&1; then
+    diff -q "$dash_tmp/data.json" dashboard/data.json >/dev/null 2>&1 \
+        && ok "data.json matches the warehouse" \
+        || bad "data.json is STALE — re-run dashboard/export.sh"
+    diff -q "$dash_tmp/index.html" dashboard/index.html >/dev/null 2>&1 \
+        && ok "index.html matches data.json" \
+        || bad "index.html is STALE — re-run dashboard/build.py"
+else
+    bad "dashboard could not be regenerated"
+fi
+cp "$dash_tmp/data.json" "$dash_tmp/index.html" dashboard/
+rm -rf "$dash_tmp"
 
 head_ "9 · Lint"
 sqlfluff lint sql/ >/dev/null 2>&1 && ok "sqlfluff clean" || bad "sqlfluff violations"

@@ -42,7 +42,7 @@ set, and the client decides.
 
 ## The rules
 
-**11 REJECT findings · 120 WARN findings · 131 total**
+**11 REJECT findings · 159 WARN findings · 170 total**
 
 ### Transaction level
 
@@ -269,8 +269,9 @@ Nothing detected it: there was no `ORPHAN_ORDER` rule and no
 `fact_transaction_order_resolves` check — while the validation script's own header
 said "what must never happen is a key that points at nothing".
 
-Both are now asserted. The canonical validation grew from 20 invariants to 29 as
-each defect was closed.
+Both are now asserted. The canonical validation grew from 20 invariants to 32 as
+each defect was closed — the last three when the master-data path was audited
+and found to have none of the treatment the transaction path had received.
 
 The variance figures moved twice before settling, and the history matters more
 than the final number:

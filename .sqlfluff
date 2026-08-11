@@ -15,6 +15,12 @@ templater = raw
 # excluded — a line-length setting that no enabled rule reads is a config that
 # lies about what it enforces.
 max_line_length = 110
+# 0 disables the skip. The default (20000 bytes) makes sqlfluff SKIP a file with
+# a warning and exit 0 — so an oversized file lints "clean" by not being linted.
+# Two files already sat at 18.5KB, and the data-quality rules crossed the limit
+# the moment master-data rules were added. A gate that quietly stops covering
+# its largest file is worse than no gate, because CI still reports green.
+large_file_skip_byte_limit = 0
 
 # Disabled, with reasons:
 #

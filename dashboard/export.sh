@@ -37,7 +37,9 @@ q() {
 echo "{"
 echo '"rules":' ; q "SELECT rule_code, severity, entity, COUNT(*) AS findings FROM silver.dq_quarantine GROUP BY rule_code, severity, entity ORDER BY findings DESC;"
 echo ',"by_client":' ; q "SELECT source_system, severity, COUNT(*) AS findings FROM silver.dq_quarantine GROUP BY source_system, severity;"
-echo ',"coverage":' ; q "SELECT expected_rule, COUNT(*) AS labelled, SUM(IFF(outcome='DETECTED',1,0)) AS detected FROM silver.v_rule_coverage GROUP BY expected_rule ORDER BY labelled DESC;"
+# Transactions AND master, one list. Exporting only v_rule_coverage published
+# 55/55 while 28 master labels had no rule evaluating them at all.
+echo ',"coverage":' ; q "SELECT expected_rule, COUNT(*) AS labelled, SUM(IFF(outcome='DETECTED',1,0)) AS detected FROM (SELECT expected_rule, outcome FROM silver.v_rule_coverage UNION ALL SELECT 'master: ' || entity || ' — ' || label, outcome FROM silver.v_master_rule_coverage) GROUP BY expected_rule ORDER BY labelled DESC;"
 echo ',"classification":' ; q "SELECT classification, COUNT(*) AS labels FROM silver.v_label_classification GROUP BY classification;"
 echo ',"variance":' ; q "SELECT source_system, COUNT(*) AS txns, SUM(IFF(variance_is_comparable AND ABS(COALESCE(amount_variance,0))>0.01,1,0)) AS with_variance, ROUND(SUM(IFF(variance_is_comparable, ABS(COALESCE(amount_variance,0)), 0)),2) AS total_abs_variance, SUM(IFF(NOT variance_is_comparable,1,0)) AS not_comparable FROM gold.fact_transaction GROUP BY source_system;"
 echo ',"client_rows":' ; q "SELECT source_system, COUNT(*) AS transactions FROM gold.fact_transaction GROUP BY source_system;"
