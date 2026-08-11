@@ -133,9 +133,11 @@ jobs:
       #   · a credential must always stay ignored — a blanket `!data/**` once
       #     made .env, rsa_key.p8 and secrets.pem stageable in this public repo
       #
-      # Real tracked paths are probed, not just synthetic names: a pattern like
-      # `*.xml` appended after the re-inclusions would shadow all seven
-      # ClientA_Transactions fragments while any fixed probe list stayed green.
+      # Real tracked paths are probed, not just synthetic names. A bare `*.xml`
+      # would be caught by the synthetic probes too — but a directory-scoped
+      # pattern such as `data/client_a/*.xml` shadows all seven
+      # ClientA_Transactions fragments while every probe under
+      # data/probe_client/ stays green. Only the real names catch that.
       - name: 2b · .gitignore protects deliveries and still blocks secrets
         run: |
           set -uo pipefail
@@ -161,7 +163,12 @@ jobs:
           done < <(git -c core.quotePath=false ls-files data | grep -vx 'data/CHECKSUMS\.sha256')
 
           # Hypothetical deliveries in each delivered format must be stageable.
-          for probe_file in Orders.csv Orders.CSV Transactions.xml transactions.json Transactions.txt; do
+          # Nested paths included: git does not descend into an excluded
+          # directory, so an unanchored pattern like `tmp/` swallows a delivery
+          # unpacked into data/client_c/tmp/ and no `!data/**/*.ext` can rescue
+          # it. Flat probes never exercise that.
+          for probe_file in Orders.csv Orders.CSV Transactions.xml transactions.json Transactions.txt \
+                            tmp/Orders.csv .snowflake/Orders.csv sub/dir/Orders.csv; do
             case "$(probe "data/probe_client/$probe_file")" in
               ignored) echo "::error::.gitignore would hide a delivered data/probe_client/$probe_file"; failed=1 ;;
               error)   echo "::error::git check-ignore failed on data/probe_client/$probe_file"; failed=1 ;;
@@ -169,7 +176,8 @@ jobs:
           done
 
           # Credentials must stay ignored even carrying a data extension.
-          for secret in credentials.csv api_secret.json .env .env.local rsa_key.p8 signing.key secrets.pem; do
+          for secret in credentials.csv api_secret.json .env .env.local signing.key secrets.pem \
+                        rsa_key.p8 rsa_key.csv rsa_key.txt rsa_key_backup.json private_key.txt; do
             case "$(probe "data/probe_client/$secret")" in
               visible) echo "::error::.gitignore would allow committing data/probe_client/$secret to a public repository."; failed=1 ;;
               error)   echo "::error::git check-ignore failed on data/probe_client/$secret"; failed=1 ;;

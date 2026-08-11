@@ -95,7 +95,11 @@ self-enforcing: changing a source file forces a new manifest, a new manifest has
 a new digest, and the digest is pinned as `EXPECTED` in
 `.github/workflows/ci.yml`. So a re-delivery cannot avoid touching the workflow —
 and step 3 keys on exactly that, allowing a `data/` change only when the workflow
-changed with it. The exception lands where a reviewer already has to look.
+changed with it.
+
+Note what this does **not** guarantee: that anyone read the diff. With a single
+collaborator, GitHub cannot enforce review — see `knowledge-base/DECISIONS.md`
+D16. The exception is narrow by construction, but it is upheld by discipline.
 
 To land a genuine re-delivery, in one PR: replace the files, **`git add data`**,
 regenerate the manifest, and update `EXPECTED`. The `git add` is not optional —

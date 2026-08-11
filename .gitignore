@@ -9,19 +9,19 @@ config.toml
 credentials*
 
 # Snowflake CLI local state
-.snowflake/
+/.snowflake/
 
 # OS
 .DS_Store
 Thumbs.db
 
 # Editors
-.vscode/
-.idea/
+/.vscode/
+/.idea/
 *.swp
 
 # Temporary exports
-tmp/
+/tmp/
 *.tmp
 
 # Delivered data formats under data/ are never ignored.
@@ -56,6 +56,16 @@ data/**/.env*
 data/**/*.key
 data/**/*.pem
 data/**/*.p8
+data/**/rsa_key*
+data/**/*private_key*
 
-# CI step 2b probes these properties, so removing or shadowing this block fails
-# the build rather than silently reopening the gap.
+# The directory patterns above (/tmp/, /.snowflake/, /.vscode/, /.idea/) are
+# anchored to the repository root on purpose. Git does not descend into an
+# excluded directory, so no `!data/**/*.ext` negation can rescue a file inside
+# one: an unanchored `tmp/` silently swallowed data/client_c/tmp/Orders.csv, and
+# neither the manifest nor any gate would have noticed, since both derive from
+# the index. Anchoring means those patterns cannot match inside data/ at all.
+#
+# CI step 2b probes every property in this block — delivered formats visible,
+# credentials ignored, nested directories not swallowing deliveries — so removing
+# or shadowing any of it fails the build rather than silently reopening the gap.
