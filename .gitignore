@@ -29,9 +29,15 @@ Thumbs.db
 # WHY THIS BLOCK EXISTS. Both the manifest and the coverage check derive from the
 # git index, so a delivered file that `git add` silently skips is invisible to
 # every integrity gate: it never reaches Snowflake while CI reports green and the
-# documentation asserts the delivery is committed byte-identical. The patterns
-# above are not exotic — a delivery containing config.toml or an *.tmp export
-# would hit them.
+# documentation asserts the delivery is committed byte-identical.
+#
+# WHAT IT COVERS, EXACTLY. Only the five formats actually delivered. A bundle
+# containing config.toml, an *.tmp export, .DS_Store or Thumbs.db is still
+# ignored, and that is deliberate — those names are far more likely to be an
+# exporter artefact or a secret than payload, and re-including them to be
+# thorough is how the blanket `!data/**` leaked credentials in the first place.
+# If a delivery genuinely carries data under one of those names, it must be
+# handled explicitly rather than swept in by a broad rule.
 #
 # WHY IT IS SCOPED. An earlier version used a blanket `!data/**`, which silently
 # re-enabled committing credentials: .env, rsa_key.p8, secrets.pem and
@@ -49,15 +55,22 @@ Thumbs.db
 # these come after the re-inclusions above. A file named credentials.csv is a
 # secret first and a CSV second; if a delivery genuinely contains one, it must be
 # renamed or handled out of band, not committed here.
-data/**/credentials*
-data/**/*secret*
-data/**/*password*
-data/**/.env*
-data/**/*.key
-data/**/*.pem
-data/**/*.p8
-data/**/rsa_key*
-data/**/*private_key*
+#
+# The character classes are not decoration. gitignore has no case-insensitive
+# flag, and the CI runner has core.ignorecase=false, so a plain `credentials*`
+# leaves Credentials.csv and CREDENTIALS.CSV committable. That is the plausible
+# case here rather than a theoretical one: Client B already delivers
+# Customer.CSV in uppercase, which is why *.CSV had to be re-included at all.
+data/**/[Cc][Rr][Ee][Dd][Ee][Nn][Tt][Ii][Aa][Ll]*
+data/**/*[Ss][Ee][Cc][Rr][Ee][Tt]*
+data/**/*[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]*
+data/**/*[Tt][Oo][Kk][Ee][Nn]*
+data/**/.[Ee][Nn][Vv]*
+data/**/*.[Kk][Ee][Yy]
+data/**/*.[Pp][Ee][Mm]
+data/**/*.[Pp]8
+data/**/[Rr][Ss][Aa]_[Kk][Ee][Yy]*
+data/**/*[Pp][Rr][Ii][Vv][Aa][Tt][Ee]_[Kk][Ee][Yy]*
 
 # The directory patterns above (/tmp/, /.snowflake/, /.vscode/, /.idea/) are
 # anchored to the repository root on purpose. Git does not descend into an
@@ -66,6 +79,12 @@ data/**/*private_key*
 # neither the manifest nor any gate would have noticed, since both derive from
 # the index. Anchoring means those patterns cannot match inside data/ at all.
 #
-# CI step 2b probes every property in this block — delivered formats visible,
-# credentials ignored, nested directories not swallowing deliveries — so removing
-# or shadowing any of it fails the build rather than silently reopening the gap.
+# CI step 2b probes the OUTCOMES of this block — delivered formats visible,
+# credentials ignored, nested directories not swallowing deliveries — so
+# shadowing it with a later pattern fails the build.
+#
+# It cannot detect deleting the `!data/**/*.ext` lines themselves. Those
+# negations are a no-op against today's pattern set: nothing above them matches
+# those five extensions, so removing them changes no outcome and 2b stays green.
+# They are insurance against a future pattern, and a maintainer tidying them as
+# redundant would remove that insurance with a clean build. Leave them.

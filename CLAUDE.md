@@ -76,8 +76,11 @@ diff <(git -c core.quotePath=false ls-files data | grep -vx 'data/CHECKSUMS\.sha
 
 CI runs five steps: the manifest's own pinned digest (0), the checksums (1),
 manifest coverage (2), a check that `.gitignore` cannot hide a delivered file
-(2b), and a diff of the source files against the base (3). The commands above
-mirror steps 1 and 2; the other three have no local equivalent. The checksum gate enforces the project's central
+(2b), and a diff of the source files against the base (3). The commands above mirror steps 1 and 2. Step 0 (compare
+`shasum -a 256 data/CHECKSUMS.sha256` against `EXPECTED` in the workflow) and
+step 2b (pure `git check-ignore`) also run locally with no CI involved — worth
+doing before pushing, since several credential-exposure bugs were caught exactly
+that way. Only step 3 genuinely needs the base ref. The checksum gate enforces the project's central
 claim — that the source files are ingested byte-identical and every repair
 happens in SQL. Without it, someone could quietly "fix" a file and the pipeline
 would pass while the exercise had been sidestepped.
@@ -102,10 +105,17 @@ collaborator, GitHub cannot enforce review — see `knowledge-base/DECISIONS.md`
 D16. The exception is narrow by construction, but it is upheld by discipline.
 
 To land a genuine re-delivery, in one PR: replace the files, **`git add data`**,
-regenerate the manifest, and update `EXPECTED`. The `git add` is not optional —
-the regeneration command reads the *index*, not the working tree, so a newly
-delivered file that has not been staged is omitted from the manifest and CI then
-fails on a manifest that looks corrupt.
+regenerate the manifest, and update `EXPECTED`. The `git add` is not optional, and the reason is worse than it sounds. The
+regeneration command reads the *index*, not the working tree:
+
+- A **replaced** file left unstaged produces a manifest that disagrees with the
+  bytes on disk, and CI fails on what looks like corruption. Annoying, but loud.
+- A **brand-new** file left unstaged is absent from the index, so the regenerated
+  manifest is byte-identical to the old one, `EXPECTED` never changes, and all
+  five CI steps pass. The delivery is silently lost with a fully green build.
+
+No CI step can catch the second case — the file does not exist in the checkout.
+Run `git status` and confirm every delivered file is staged before regenerating.
 
 ```bash
 git add data                                    # stage the delivery FIRST —

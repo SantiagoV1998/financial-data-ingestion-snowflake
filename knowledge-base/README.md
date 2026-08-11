@@ -134,7 +134,8 @@ FROM cleaned_lines;
 ## Repository protections
 
 `main` is protected: force-pushes and deletions rejected, both CI checks
-required, enforced for admins, a PR required to merge.
+required, enforced for admins. A pull-request rule is configured at zero required
+approvals, which does **not** block a direct push — see below.
 
 Read D16 before relying on it. The protection guarantees that nothing reaches
 `main` without passing CI — but **not** that every change was reviewed. With one

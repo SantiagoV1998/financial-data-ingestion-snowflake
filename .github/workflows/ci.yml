@@ -167,8 +167,13 @@ jobs:
           # directory, so an unanchored pattern like `tmp/` swallows a delivery
           # unpacked into data/client_c/tmp/ and no `!data/**/*.ext` can rescue
           # it. Flat probes never exercise that.
+          # One nested probe per anchored directory pattern. Covering only two of
+          # the four left a hole: un-anchoring /.idea/ or /.vscode/ — a very
+          # likely future edit — would swallow a delivery again while every
+          # existing probe stayed green.
           for probe_file in Orders.csv Orders.CSV Transactions.xml transactions.json Transactions.txt \
-                            tmp/Orders.csv .snowflake/Orders.csv sub/dir/Orders.csv; do
+                            tmp/Orders.csv .snowflake/Orders.csv .vscode/Orders.csv \
+                            .idea/Orders.csv sub/dir/Orders.csv; do
             case "$(probe "data/probe_client/$probe_file")" in
               ignored) echo "::error::.gitignore would hide a delivered data/probe_client/$probe_file"; failed=1 ;;
               error)   echo "::error::git check-ignore failed on data/probe_client/$probe_file"; failed=1 ;;
@@ -176,8 +181,16 @@ jobs:
           done
 
           # Credentials must stay ignored even carrying a data extension.
-          for secret in credentials.csv api_secret.json .env .env.local signing.key secrets.pem \
-                        rsa_key.p8 rsa_key.csv rsa_key.txt rsa_key_backup.json private_key.txt; do
+          # Mixed case throughout: gitignore has no case-insensitive flag and the
+          # runner has core.ignorecase=false, so a lowercase-only guard leaves
+          # Credentials.csv and CREDENTIALS.CSV committable — and Client B
+          # already delivers Customer.CSV in uppercase.
+          for secret in credentials.csv Credentials.csv CREDENTIALS.CSV \
+                        api_secret.json API_SECRET.json auth_token.csv AuthToken.csv \
+                        .env .env.local .ENV \
+                        signing.key signing.KEY secrets.pem Secrets.PEM \
+                        rsa_key.p8 rsa_key.csv rsa_key.txt RSA_KEY.txt \
+                        private_key.txt Private_Key.txt; do
             case "$(probe "data/probe_client/$secret")" in
               visible) echo "::error::.gitignore would allow committing data/probe_client/$secret to a public repository."; failed=1 ;;
               error)   echo "::error::git check-ignore failed on data/probe_client/$secret"; failed=1 ;;

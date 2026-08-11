@@ -259,9 +259,11 @@ defensible contract.
 ## D16 · Branch protection, and the guarantee it does not give
 
 **Decision**: `main` is protected — force-pushes and deletions rejected, both CI
-checks required, `enforce_admins` on, a pull request required to merge. The
-repository is public, which is what makes protection available at all (GitHub
-gates it behind public or Pro).
+checks required, `enforce_admins` on. `required_pull_request_reviews` is set with
+zero required approvals, which sounds like "a PR is required to merge" and is
+not: with zero approvals GitHub does not block a direct push, which is what the
+verification below found. The repository is public, which is what makes
+protection available at all (GitHub gates it behind public or Pro).
 
 **What this actually guarantees**: no code reaches `main` without passing CI, the
 history cannot be rewritten, and the branch cannot be deleted. That is worth
