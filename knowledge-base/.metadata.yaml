@@ -123,6 +123,6 @@ deliverables:
   canonical_ddl: sql/03_gold/01_canonical_ddl.sql
   transformation_sql: [sql/02_silver/, sql/03_gold/02_transform_to_canonical.sql]
   anomaly_notes: docs/anomaly-handling.md
-  dashboard: https://santiagov1998.github.io/financial-data-ingestion-snowflake/
+  dashboard: https://santiagov1998.github.io/financial-data-ingestion-snowflake/dashboard/
 
 last_updated: 2026-08-11

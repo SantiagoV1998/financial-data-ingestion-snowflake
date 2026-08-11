@@ -4,7 +4,7 @@ Ingestion of multi-format financial transaction data (XML, JSON, CSV) from
 multiple clients into a canonical data model on Snowflake, **using SQL only** —
 no Python, no external ETL tooling.
 
-**[→ Pipeline results dashboard](https://santiagov1998.github.io/financial-data-ingestion-snowflake/)**
+**[→ Pipeline results dashboard](https://santiagov1998.github.io/financial-data-ingestion-snowflake/dashboard/)**
 
 ---
 
