@@ -228,7 +228,8 @@ fi
 # figure may appear ONLY inside the history table that explains it. The allowed
 # list below holds figures used to ILLUSTRATE a specific case in the prose —
 # TXN-1001's 97.48/6.48/91.00, C-TXN-3001's 149.99, TXN-1011's 9.99, TXN-1026's
-# 19.99, and the 0.00 list price ZERO_LIST_PRICE fires on. Adding a worked example means adding its numbers here, which is the
+# 19.99, the 0.00 list price ZERO_LIST_PRICE fires on, and C-SKU-011's 59.99 —
+# the clean copy that 'last row wins' used to discard in favour of -59.99. Adding a worked example means adding its numbers here, which is the
 # intended friction: an unexplained figure in a deliverable should cost
 # something. Banning the
 # old number outright was wrong: recording how a figure changed, and why, is the
@@ -249,7 +250,7 @@ grep -q "$var_a" docs/anomaly-handling.md \
 # Any variance-shaped number outside the history table must be the current one.
 stray=$(awk '/^\| First published/,/^\| \*\*Current\*\*/ {next} /[0-9]+\.[0-9]{2}/ {print}' \
         docs/anomaly-handling.md | grep -oE '[0-9]+\.[0-9]{2}' \
-        | grep -vE "^($var_a|$var_b|149\.99|97\.48|91\.00|6\.48|9\.99|19\.99|0\.00)$" | head -3)
+        | grep -vE "^($var_a|$var_b|149\.99|97\.48|91\.00|6\.48|9\.99|19\.99|0\.00|59\.99)$" | head -3)
 [ -z "$stray" ] \
     && ok "no stray variance figures outside the history table" \
     || bad "unexplained figures outside the history table: $(echo "$stray" | tr '\n' ' ')"
