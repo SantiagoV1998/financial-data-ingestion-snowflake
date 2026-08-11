@@ -1,0 +1,616 @@
+<title>Financial Data Ingestion — Pipeline Results</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1: #fcfcfb;
+    --surface-2: #f4f3f0;
+    --border: #dedcd6;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #77756f;
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --status-good: #0ca30c;
+    --status-warning: #fab219;
+    --status-critical: #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1: #1a1a19;
+      --surface-2: #232322;
+      --border: #3a3a37;
+      --text-primary: #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted: #97968c;
+      --series-1: #3987e5;
+      --series-2: #d95926;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --surface-2: #232322;
+    --border: #3a3a37;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #97968c;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+  }
+
+  body { margin: 0; background: var(--surface-1); }
+  .viz-root {
+    background: var(--surface-1);
+    color: var(--text-primary);
+    font: 15px/1.55 ui-sans-serif, -apple-system, "Segoe UI", system-ui, sans-serif;
+    padding: 2.5rem 1.5rem 4rem;
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.6rem; margin: 0 0 .3rem; letter-spacing: -.015em; }
+  .sub { color: var(--text-secondary); margin: 0 0 2.2rem; max-width: 62ch; }
+  h2 { font-size: 1.02rem; margin: 2.6rem 0 .35rem; letter-spacing: -.01em; }
+  .note { color: var(--text-muted); font-size: .85rem; margin: 0 0 1rem; max-width: 68ch; }
+
+  .hero {
+    display: flex; flex-wrap: wrap; gap: 1.5rem 2.5rem; align-items: baseline;
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 1.4rem 1.6rem; margin-bottom: .6rem;
+  }
+  .hero .figure { font-size: 2.9rem; font-weight: 650; letter-spacing: -.03em; line-height: 1; }
+  .hero .figure small { font-size: 1rem; font-weight: 500; color: var(--text-secondary); }
+  .hero .caption { color: var(--text-secondary); font-size: .9rem; max-width: 46ch; }
+
+  .tiles { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 1.2rem 0 0; }
+  .tile { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: .8rem .95rem; }
+  .tile .v { font-size: 1.5rem; font-weight: 620; letter-spacing: -.02em; }
+  .tile .k { color: var(--text-secondary); font-size: .8rem; }
+
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  th, td { text-align: left; padding: .38rem .5rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  thead th { color: var(--text-muted); font-weight: 550; font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; border-bottom-width: 1px; }
+  tbody tr:hover, tbody tr:focus-visible { background: var(--surface-2); outline: none; }
+  td.num { text-align: right; font-variant-numeric: tabular-nums; width: 1%; white-space: nowrap; }
+  td.track { width: 42%; }
+  th[scope="row"] { font-weight: 500; color: var(--text-primary); }
+  code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-primary); }
+
+  .bar { display: block; height: 9px; border-radius: 0 4px 4px 0; }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: .45rem; vertical-align: baseline; }
+  .dot-reject { background: var(--status-critical); }
+  .dot-warn { background: var(--status-warning); }
+  td.sev { color: var(--text-secondary); font-size: .82rem; white-space: nowrap; }
+
+  .legend { display: flex; gap: 1.1rem; flex-wrap: wrap; color: var(--text-secondary); font-size: .82rem; margin: 0 0 .7rem; }
+  .legend span.item { display: inline-flex; align-items: center; }
+
+  .clients { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .client { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.15rem; }
+  .client h3 { margin: 0 0 .6rem; font-size: .95rem; display: flex; align-items: center; }
+  .client dl { margin: 0; }
+  .client dl > div { display: flex; justify-content: space-between; gap: 1rem; padding: .28rem 0; border-bottom: 1px solid var(--border); }
+  .client dl > div:last-child { border-bottom: none; }
+  .client dt { color: var(--text-secondary); font-size: .84rem; }
+  .client dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 560; }
+
+  .scroll { overflow-x: auto; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--text-muted); font-size: .82rem; }
+  a { color: var(--series-1); }
+</style>
+
+<div class="viz-root">
+
+<h1>Financial data ingestion — pipeline results</h1>
+<p class="sub">
+  Multi-format ingestion (XML, JSON, CSV) from two clients into a canonical model
+  on Snowflake, using SQL only. Every figure below is produced by the pipeline and
+  exported from the warehouse — nothing is computed in this page.
+</p>
+
+<h2>Are the quality rules actually finding the anomalies?</h2>
+<p class="note">
+  The delivery labels its own defects: each XML transaction is preceded by a comment
+  naming what is wrong with it, and the CSVs carry the same inline. Bronze kept every
+  line verbatim, so those labels are recoverable and serve as ground truth.
+</p>
+<div class="hero">
+  <div>
+    <div class="figure">100%<small> of labelled anomalies detected</small></div>
+  </div>
+  <p class="caption">
+    83 of 83 expectations satisfied. Every ground-truth label is
+    classified and the totals reconcile: 45 mapped
+    to a rule, 7 schema variation
+    handled by design, 0 unclassified.
+  </p>
+</div>
+
+<div class="scroll">
+<table>
+  <caption class="note" style="text-align:left;caption-side:bottom;padding-top:.6rem">
+    Detection per labelled anomaly type.
+  </caption>
+  <thead><tr><th>Rule expected by the label</th><th class="num">Labelled</th><th class="num">Detected</th><th>&nbsp;</th></tr></thead>
+  <tbody><tr tabindex="0">
+      <th scope="row"><code>DUPLICATE_TRANSACTION_ID</code></th>
+      <td class="num">10</td>
+      <td class="num">10</td>
+      <td class="track"><span class="bar" style="width:100.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>NEGATIVE_QUANTITY</code></th>
+      <td class="num">8</td>
+      <td class="num">8</td>
+      <td class="track"><span class="bar" style="width:80.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>master: orders — missing date</code></th>
+      <td class="num">5</td>
+      <td class="num">5</td>
+      <td class="track"><span class="bar" style="width:50.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>DUPLICATE_CUSTOMER</code></th>
+      <td class="num">4</td>
+      <td class="num">4</td>
+      <td class="track"><span class="bar" style="width:40.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_ORDER_DATE</code></th>
+      <td class="num">4</td>
+      <td class="num">4</td>
+      <td class="track"><span class="bar" style="width:40.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>NEGATIVE_PAYMENT_AMOUNT</code></th>
+      <td class="num">4</td>
+      <td class="num">4</td>
+      <td class="track"><span class="bar" style="width:40.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>INVALID_EMAIL</code></th>
+      <td class="num">3</td>
+      <td class="num">3</td>
+      <td class="track"><span class="bar" style="width:30.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_EMAIL</code></th>
+      <td class="num">3</td>
+      <td class="num">3</td>
+      <td class="track"><span class="bar" style="width:30.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_SKU</code></th>
+      <td class="num">3</td>
+      <td class="num">3</td>
+      <td class="track"><span class="bar" style="width:30.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>DUPLICATE_ORDER_ID</code></th>
+      <td class="num">2</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:20.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_CUSTOMER_NAME</code></th>
+      <td class="num">2</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:20.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_ORDER_ID</code></th>
+      <td class="num">2</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:20.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>NEGATIVE_UNIT_PRICE</code></th>
+      <td class="num">2</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:20.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>master: customers — duplicate</code></th>
+      <td class="num">2</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:20.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>master: customers — invalid email</code></th>
+      <td class="num">2</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:20.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>master: orders — duplicate</code></th>
+      <td class="num">2</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:20.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>master: orders — duplicate customer</code></th>
+      <td class="num">2</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:20.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>master: orders — invalid customer</code></th>
+      <td class="num">2</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:20.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>master: products — anomaly</code></th>
+      <td class="num">2</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:20.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>master: products — duplicate</code></th>
+      <td class="num">2</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:20.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>master: products — negative price</code></th>
+      <td class="num">2</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:20.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_CUSTOMER_ID</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_DESCRIPTION</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_PAYMENT_AMOUNT</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_PAYMENT_METHOD</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_QUANTITY</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>MISSING_TRANSACTION_ID</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>ORPHAN_CUSTOMER or MISSING_CUSTOMER_ID</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>ORPHAN_SKU or MISSING_SKU</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>master: customers — invalid email + missing name</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>master: customers — missing email</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>master: customers — null-heavy anomaly row</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>master: customers — null-heavy row</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>master: payments — duplicate</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>master: payments — negative</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0">
+      <th scope="row"><code>master: payments — negative amount</code></th>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:10.00%;background:var(--status-good)" aria-hidden="true"></span></td>
+    </tr></tbody>
+</table>
+</div>
+
+<h2>What happened to the records</h2>
+<p class="note">
+  Bronze lands bytes; silver parses, types and deduplicates; gold conforms. The drop
+  between parsed and clean is deduplication plus REJECT-severity rows — held in
+  quarantine with their payload, never deleted.
+</p>
+<div class="scroll">
+<table>
+  <thead><tr><th>Stage</th><th class="num">Rows</th><th>&nbsp;</th></tr></thead>
+  <tbody><tr tabindex="0" title="XML fragments plus JSON">
+      <th scope="row">Silver · transactions parsed</th>
+      <td class="num">57</td>
+      <td class="track"><span class="bar" style="width:33.33%;background:var(--series-1)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="After deduplication and REJECT rules">
+      <th scope="row">Silver · transactions clean</th>
+      <td class="num">46</td>
+      <td class="track"><span class="bar" style="width:26.90%;background:var(--series-1)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="XML plus JSON">
+      <th scope="row">Silver · line items parsed</th>
+      <td class="num">58</td>
+      <td class="track"><span class="bar" style="width:33.92%;background:var(--series-1)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="Belonging to the surviving copy of each transaction">
+      <th scope="row">Silver · line items clean</th>
+      <td class="num">43</td>
+      <td class="track"><span class="bar" style="width:25.15%;background:var(--series-1)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="">
+      <th scope="row">Silver · customers</th>
+      <td class="num">43</td>
+      <td class="track"><span class="bar" style="width:25.15%;background:var(--series-1)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="">
+      <th scope="row">Silver · products</th>
+      <td class="num">37</td>
+      <td class="track"><span class="bar" style="width:21.64%;background:var(--series-1)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="">
+      <th scope="row">Silver · orders</th>
+      <td class="num">40</td>
+      <td class="track"><span class="bar" style="width:23.39%;background:var(--series-1)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="Client B only — Client A embeds payment per transaction">
+      <th scope="row">Silver · payments</th>
+      <td class="num">20</td>
+      <td class="track"><span class="bar" style="width:11.70%;background:var(--series-1)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="Retained with payload, never deleted">
+      <th scope="row">Quality findings</th>
+      <td class="num">171</td>
+      <td class="track"><span class="bar" style="width:100.00%;background:var(--series-1)" aria-hidden="true"></span></td>
+    </tr></tbody>
+</table>
+</div>
+
+<div class="tiles">
+  <div class="tile"><div class="v">46</div><div class="k">Canonical transactions</div></div>
+  <div class="tile"><div class="v">43</div><div class="k">Canonical line items</div></div>
+  <div class="tile"><div class="v">43</div><div class="k">Customers</div></div>
+  <div class="tile"><div class="v">37</div><div class="k">Products</div></div>
+  <div class="tile"><div class="v">57</div><div class="k">Payments</div></div>
+  <div class="tile"><div class="v">171</div><div class="k">Quality findings</div></div>
+</div>
+
+<h2>Quality findings by rule</h2>
+<p class="legend">
+  <span class="item"><span class="dot dot-reject"></span>Reject — cannot be represented (11)</span>
+  <span class="item"><span class="dot dot-warn"></span>Warn — loaded and flagged (160)</span>
+</p>
+<p class="note">
+  A negative quantity may be a return and a negative payment may be a refund, so those
+  load with a flag rather than being dropped: the client decides. Only records with
+  nothing to key on — no transaction id, no SKU, an unparseable amount — are rejected.
+</p>
+<div class="scroll">
+<table>
+  <thead><tr><th>Rule</th><th>Severity</th><th class="num">Findings</th><th>&nbsp;</th></tr></thead>
+  <tbody><tr tabindex="0" title="transaction · WARN">
+      <th scope="row"><code>ORPHAN_ORDER</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">23</td>
+      <td class="track"><span class="bar" style="width:100.00%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction_item · WARN">
+      <th scope="row"><code>ORPHAN_SKU</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">20</td>
+      <td class="track"><span class="bar" style="width:86.96%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · WARN">
+      <th scope="row"><code>ORPHAN_CUSTOMER</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">18</td>
+      <td class="track"><span class="bar" style="width:78.26%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · WARN">
+      <th scope="row"><code>DUPLICATE_TRANSACTION_ID</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">12</td>
+      <td class="track"><span class="bar" style="width:52.17%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction_item · WARN">
+      <th scope="row"><code>NEGATIVE_QUANTITY</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">9</td>
+      <td class="track"><span class="bar" style="width:39.13%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · WARN">
+      <th scope="row"><code>DUPLICATE_CUSTOMER</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">8</td>
+      <td class="track"><span class="bar" style="width:34.78%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · WARN">
+      <th scope="row"><code>NEGATIVE_PAYMENT_AMOUNT</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">6</td>
+      <td class="track"><span class="bar" style="width:26.09%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="order · WARN">
+      <th scope="row"><code>ORDER_REFERENCES_DUPLICATED_CUSTOMER</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">6</td>
+      <td class="track"><span class="bar" style="width:26.09%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="customer · WARN">
+      <th scope="row"><code>MISSING_MASTER_EMAIL</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">5</td>
+      <td class="track"><span class="bar" style="width:21.74%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="order · WARN">
+      <th scope="row"><code>MISSING_MASTER_ORDER_DATE</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">5</td>
+      <td class="track"><span class="bar" style="width:21.74%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · WARN">
+      <th scope="row"><code>MISSING_ORDER_DATE</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">5</td>
+      <td class="track"><span class="bar" style="width:21.74%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction_item · REJECT">
+      <th scope="row"><code>MISSING_SKU</code></th>
+      <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
+      <td class="num">5</td>
+      <td class="track"><span class="bar" style="width:21.74%;background:var(--status-critical)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · WARN">
+      <th scope="row"><code>DUPLICATE_ORDER_ID</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">4</td>
+      <td class="track"><span class="bar" style="width:17.39%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="customer · WARN">
+      <th scope="row"><code>INVALID_EMAIL</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">4</td>
+      <td class="track"><span class="bar" style="width:17.39%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · WARN">
+      <th scope="row"><code>MISSING_EMAIL</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">4</td>
+      <td class="track"><span class="bar" style="width:17.39%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="product · WARN">
+      <th scope="row"><code>DUPLICATE_SKU</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">3</td>
+      <td class="track"><span class="bar" style="width:13.04%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · WARN">
+      <th scope="row"><code>INVALID_EMAIL</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">3</td>
+      <td class="track"><span class="bar" style="width:13.04%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="customer · WARN">
+      <th scope="row"><code>MISSING_CUSTOMER_NAME</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">3</td>
+      <td class="track"><span class="bar" style="width:13.04%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · WARN">
+      <th scope="row"><code>MISSING_CUSTOMER_NAME</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">3</td>
+      <td class="track"><span class="bar" style="width:13.04%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="customer · WARN">
+      <th scope="row"><code>DUPLICATE_CUSTOMER_ID</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:8.70%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="order · WARN">
+      <th scope="row"><code>DUPLICATE_MASTER_ORDER_ID</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:8.70%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · REJECT">
+      <th scope="row"><code>MISSING_ORDER_ID</code></th>
+      <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:8.70%;background:var(--status-critical)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · REJECT">
+      <th scope="row"><code>MISSING_TRANSACTION_ID</code></th>
+      <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:8.70%;background:var(--status-critical)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="product · WARN">
+      <th scope="row"><code>NEGATIVE_LIST_PRICE</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:8.70%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="payment · WARN">
+      <th scope="row"><code>NEGATIVE_PAYMENT_AMOUNT</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:8.70%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction_item · WARN">
+      <th scope="row"><code>NEGATIVE_UNIT_PRICE</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:8.70%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="order · WARN">
+      <th scope="row"><code>ORPHAN_MASTER_CUSTOMER</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:8.70%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="product · WARN">
+      <th scope="row"><code>ZERO_LIST_PRICE</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">2</td>
+      <td class="track"><span class="bar" style="width:8.70%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="payment · WARN">
+      <th scope="row"><code>DUPLICATE_PAYMENT_ID</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · REJECT">
+      <th scope="row"><code>MISSING_CUSTOMER_ID</code></th>
+      <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-critical)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction_item · WARN">
+      <th scope="row"><code>MISSING_DESCRIPTION</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · WARN">
+      <th scope="row"><code>MISSING_PAYMENT_AMOUNT</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction · WARN">
+      <th scope="row"><code>MISSING_PAYMENT_METHOD</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="transaction_item · REJECT">
+      <th scope="row"><code>MISSING_QUANTITY</code></th>
+      <td class="sev"><span class="dot dot-reject"></span>REJECT</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-critical)" aria-hidden="true"></span></td>
+    </tr><tr tabindex="0" title="customer · WARN">
+      <th scope="row"><code>RAGGED_ROW</code></th>
+      <td class="sev"><span class="dot dot-warn"></span>WARN</td>
+      <td class="num">1</td>
+      <td class="track"><span class="bar" style="width:4.35%;background:var(--status-warning)" aria-hidden="true"></span></td>
+    </tr></tbody>
+</table>
+</div>
+
+<h2>By client</h2>
+<p class="note">
+  <strong>Payments not matching their own lines</strong> is the reconciliation this model
+  exists to make possible: the difference between what the source says was paid and what
+  its own line items add up to. It is measured and left visible, never corrected —
+  correcting it would erase the finding.
+  <br><br>
+  The figure counts only transactions whose every line was readable. Where a line was
+  rejected the gap is partly ours, not the source's, and those are reported separately
+  rather than folded in — otherwise the metric would overstate how inconsistent the
+  source actually is.
+</p>
+<div class="clients">
+  
+    <article class="client">
+      <h3><span class="dot" style="background:var(--series-1)"></span>Client A — XML + CSV</h3>
+      <dl>
+        <div><dt>Canonical transactions</dt><dd>37</dd></div>
+        <div><dt>Findings · warn</dt><dd>130</dd></div>
+        <div><dt>Findings · reject</dt><dd>10</dd></div>
+        <div><dt>Payments not matching their own lines</dt>
+             <dd>9 of 37</dd></div>
+        <div><dt>Total absolute variance</dt><dd>694.76</dd></div>
+        <div><dt>Not comparable — lines rejected or no payment stated</dt><dd>6</dd></div>
+      </dl>
+    </article>
+  
+    <article class="client">
+      <h3><span class="dot" style="background:var(--series-2)"></span>Client B — JSON + CSV</h3>
+      <dl>
+        <div><dt>Canonical transactions</dt><dd>9</dd></div>
+        <div><dt>Findings · warn</dt><dd>30</dd></div>
+        <div><dt>Findings · reject</dt><dd>1</dd></div>
+        <div><dt>Payments not matching their own lines</dt>
+             <dd>1 of 9</dd></div>
+        <div><dt>Total absolute variance</dt><dd>53.94</dd></div>
+        <div><dt>Not comparable — lines rejected or no payment stated</dt><dd>0</dd></div>
+      </dl>
+    </article>
+</div>
+
+<footer>
+  Generated from <code>dashboard/data.json</code>, exported from Snowflake by
+  <code>dashboard/export.sh</code>. Rebuild with <code>python3 dashboard/build.py</code>.
+  Source: <a href="https://github.com/SantiagoV1998/financial-data-ingestion-snowflake">SantiagoV1998/financial-data-ingestion-snowflake</a>.
+</footer>
+
+</div>

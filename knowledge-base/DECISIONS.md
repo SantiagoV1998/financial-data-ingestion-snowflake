@@ -332,3 +332,74 @@ Both are stated rather than papered over — the value of this entry is knowing 
 edge, not believing the control is total.
 
 **Last updated**: 2026-08-10 · after PR #7, fourteenth review round
+
+---
+
+## D18 · Master data gets the same treatment as transactions
+
+**Decision**: every master row that leaves the pipeline leaves through a
+recorded finding, and `silver.v_master_reconciliation` raises if that stops
+being true.
+
+**The defect this closes**: deduplication in `06_deduplicate.sql` discards
+master rows two ways — `WHERE <id> IS NOT NULL` and `QUALIFY ROW_NUMBER() = 1`
+— and both were silent. Measured against this delivery:
+
+| Entity | Staged | Kept | Discarded |
+|---|---|---|---|
+| customers | 45 | 43 | 2 |
+| products | 40 | 37 | 3 |
+| orders | 42 | 40 | 2 |
+| payments | 21 | 20 | 1 |
+
+Eight rows, every one a duplicate, with no finding, no retained payload and no
+invariant comparing the counts. `04_data_quality.sql` opens by stating "Nothing
+is deleted. 'We dropped 14 rows' is not an answer to an auditor" — true of the
+transaction path, false of everything else. The `entity` column even documented
+its own domain as `transaction | transaction_item`.
+
+**Why it survived so long**: every gate looked where the work had been done. The
+canonical validation compared silver to gold, never staging to silver, so rows
+lost before silver were outside every check by construction. A pipeline is only
+audited where someone thought to look.
+
+**The coverage figure was affected too**: the published "55/55 labelled
+anomalies detected (100%)" counted only XML and JSON transaction comments. The
+28 annotations carried inline in the CSVs were extracted, displayed, and
+evaluated by nothing — while `05_validate_rules.sql` argued three paragraphs
+above that "a coverage figure that silently drops the labels it cannot satisfy
+is worthless". One denominator now: **83/83**.
+
+**Rules added**: `DUPLICATE_CUSTOMER_ID`, `DUPLICATE_SKU`,
+`DUPLICATE_MASTER_ORDER_ID`, `DUPLICATE_PAYMENT_ID`, `MISSING_CUSTOMER_ID`,
+`MISSING_MASTER_SKU`, `MISSING_MASTER_ORDER_ID`, `MISSING_PAYMENT_ID`,
+`INVALID_EMAIL`, `MISSING_CUSTOMER_NAME`, `MISSING_MASTER_EMAIL`,
+`NEGATIVE_LIST_PRICE`, `MISSING_LIST_PRICE`, `ZERO_LIST_PRICE`,
+`NEGATIVE_PAYMENT_AMOUNT`, `MISSING_MASTER_ORDER_DATE`,
+`ORPHAN_MASTER_CUSTOMER`, `ORDER_REFERENCES_DUPLICATED_CUSTOMER`.
+
+**Rejected alternative**: deleting the `WHERE <id> IS NOT NULL` filters so
+nothing is discarded. That trades a silent loss for a silent corruption — a row
+with no business key cannot be keyed in the canonical model, and admitting it
+would produce a dimension row nothing can reference. Quarantining states the
+same fact without pretending the record is usable.
+
+---
+
+## D19 · The lint gate must not silence itself
+
+**Decision**: `large_file_skip_byte_limit = 0` in `.sqlfluff`.
+
+**Why**: the default is 20000 bytes, and over it sqlfluff SKIPS the file with a
+warning and exits 0 — so an oversized file passes lint by not being linted, and
+CI reports green. Two files already sat at 18.5KB; `04_data_quality.sql` crossed
+the limit the moment the master rules were added, and lint stayed "clean".
+
+The same failure has a second form: an unparsable section makes sqlfluff report
+a parsing warning while every other rule silently stops being evaluated in that
+block. A `CASE <concatenation> WHEN` in `05_validate_rules.sql` did exactly
+that; it was rewritten to key on a CTE column so the block parses and the rules
+apply.
+
+**The pattern behind both**: a gate that degrades to "not checked" while still
+exiting 0 is worse than no gate, because it is read as a pass.

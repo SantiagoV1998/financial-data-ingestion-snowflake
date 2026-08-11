@@ -15,6 +15,12 @@ templater = raw
 # excluded — a line-length setting that no enabled rule reads is a config that
 # lies about what it enforces.
 max_line_length = 110
+# 0 disables the skip. The default (20000 bytes) makes sqlfluff SKIP a file with
+# a warning and exit 0 — so an oversized file lints "clean" by not being linted.
+# Two files already sat at 18.5KB, and the data-quality rules crossed the limit
+# the moment master-data rules were added. A gate that quietly stops covering
+# its largest file is worse than no gate, because CI still reports green.
+large_file_skip_byte_limit = 0
 
 # Disabled, with reasons:
 #
@@ -42,6 +48,15 @@ max_line_length = 110
 #         by the engine: pure noise.
 #   AM04  unknown column count from SELECT * — every use is a deliberate
 #         passthrough of a stage or a view.
+#
+# AM06 (GROUP BY / ORDER BY consistency) is NOT excluded here. It has no
+# satisfiable form in exactly one place — the ORDER BY of the canonical
+# validation report — and that line carries a `-- noqa: AM06` explaining why.
+# Excluding it repo-wide to cover that one line would disarm it everywhere else.
+# What it catches — verified by probe, not assumed — is a GROUP BY or ORDER BY
+# MIXING positional and named references (GROUP BY 1, tier_raw): reorder the
+# SELECT and the 1 moves while the name does not, silently regrouping the
+# result. Pure positional grouping does not trigger it.
 exclude_rules = LT01, LT02, LT08, LT09, LT14, CP02, RF04, AL03, AM04
 
 [sqlfluff:indentation]
