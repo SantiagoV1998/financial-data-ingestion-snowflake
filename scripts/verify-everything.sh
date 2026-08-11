@@ -273,7 +273,7 @@ dash_tmp_page=$(mktemp)
 restore_dashboard() {
     [ -f "$dash_tmp/data.json" ]  && cp "$dash_tmp/data.json"  dashboard/data.json
     [ -f "$dash_tmp/index.html" ] && cp "$dash_tmp/index.html" dashboard/index.html
-    rm -rf "$dash_tmp"
+    rm -rf "$dash_tmp" "$dash_tmp_page"
     trap - EXIT INT TERM
 }
 trap restore_dashboard EXIT INT TERM
@@ -291,23 +291,49 @@ else
     bad "dashboard could not be regenerated"
 fi
 restore_dashboard
+# Re-armed: restore_dashboard clears the trap, and 8b below waits up to 20s on
+# the network with a temp file open. Without this, an interrupt there leaks it.
+trap 'rm -f "$dash_tmp_page"' EXIT INT TERM
 
 head_ "8b · The published link serves the dashboard, not the README"
 # The README's headline link pointed at the Pages root, which has no index.html
 # and therefore serves the Jekyll-rendered README — the link led back to itself.
 # Checking the URL returns 200 is not enough: the wrong page also returns 200.
 # This asserts the served page is the DASHBOARD, by a marker only it carries.
-dash_url=$(grep -oE 'https://[a-z0-9.-]+/[a-z0-9./-]*dashboard/' README.md | head -1)
+#
+# The URL lives in TWO files and this commit had to edit both by hand, so they
+# are compared against each other first: updating one and forgetting the other
+# would leave the metadata publishing the Pages root — the very failure above —
+# while a README-only check reported green.
+#
+# The marker is read from the committed index.html rather than hardcoded. A
+# hardcoded title would fail against a perfectly good page the day someone
+# rewords it, and point the reader at the link, which is not what broke.
+dash_re='https://[A-Za-z0-9.-]+/[A-Za-z0-9./-]*dashboard/?'
+dash_url=$(grep -oE "$dash_re" README.md | head -1)
+meta_url=$(grep -oE "$dash_re" knowledge-base/.metadata.yaml | head -1)
+dash_marker=$(sed -n 's:.*<title>\(.*\)</title>.*:\1:p' dashboard/index.html | head -1)
+
 if [ -z "$dash_url" ]; then
     bad "README carries no dashboard link"
-elif ! curl -sf --max-time 20 "$dash_url" -o "$dash_tmp_page" 2>/dev/null; then
+elif [ -z "$meta_url" ]; then
+    bad "knowledge-base/.metadata.yaml carries no dashboard link"
+elif [ "$dash_url" != "$meta_url" ]; then
+    bad "README and .metadata.yaml disagree: '$dash_url' vs '$meta_url'"
+elif [ -z "$dash_marker" ]; then
+    bad "could not read the dashboard title from dashboard/index.html"
+# -L because a link without the trailing slash is served through a 301, and
+# curl -f only fails on >= 400 — the redirect would otherwise yield an empty
+# body and be reported as "does not serve the dashboard".
+elif ! curl -sfL --max-time 20 "$dash_url" -o "$dash_tmp_page" 2>/dev/null; then
     bad "the published dashboard link does not respond: $dash_url"
-elif grep -q "Pipeline Results" "$dash_tmp_page" && ! grep -q "four deliverables" "$dash_tmp_page"; then
-    ok "the published link serves the dashboard"
+elif grep -qF "$dash_marker" "$dash_tmp_page" && ! grep -qF "four deliverables" "$dash_tmp_page"; then
+    ok "the published link serves the dashboard (both files agree)"
 else
     bad "the published link responds but does NOT serve the dashboard: $dash_url"
 fi
 rm -f "$dash_tmp_page"
+trap - EXIT INT TERM
 
 head_ "9 · Lint"
 sqlfluff lint sql/ >/dev/null 2>&1 && ok "sqlfluff clean" || bad "sqlfluff violations"
