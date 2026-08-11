@@ -292,7 +292,7 @@ else
 fi
 restore_dashboard
 
-head_ "8b · El link publicado sirve el dashboard, no el README"
+head_ "8b · The published link serves the dashboard, not the README"
 # The README's headline link pointed at the Pages root, which has no index.html
 # and therefore serves the Jekyll-rendered README — the link led back to itself.
 # Checking the URL returns 200 is not enough: the wrong page also returns 200.
