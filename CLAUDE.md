@@ -32,8 +32,11 @@ snow sql -c nuaav -f sql/01_bronze/04_load_bronze.sql
 
 Connection `nuaav` is defined in `~/.snowflake/config.toml`, authenticating with
 an RSA key pair at `~/.snowflake/keys/` (Snowflake blocks password-only
-programmatic sign-in). Neither the config nor the key is in this repo, and
-`.gitignore` is set up to keep it that way — never commit either.
+programmatic sign-in). Neither the config nor the key is in this repo, and `.gitignore` keeps it that
+way — including under `data/`, where the re-inclusion of delivered formats is
+deliberately scoped to `*.csv/*.CSV/*.xml/*.json/*.txt` and credential names are
+re-excluded after it. CI step 2b tests both directions, so neither protection can
+be removed quietly.
 
 Target: database `financial_ingestion`, warehouse `wh_ingestion`, schemas
 `bronze` / `silver` / `gold`, role **`ingestion_engineer`**.
@@ -67,7 +70,7 @@ that loads everything.
 ```bash
 sqlfluff lint sql/                      # dialect snowflake, config in .sqlfluff
 shasum -a 256 -c data/CHECKSUMS.sha256  # bytes match the manifest
-diff <(git -c core.quotePath=false ls-files data | grep -vx data/CHECKSUMS.sha256 | sort) \
+diff <(git -c core.quotePath=false ls-files data | grep -vx 'data/CHECKSUMS\.sha256' | sort) \
      <(sed 's/^[0-9a-f]\{64\}  //' data/CHECKSUMS.sha256 | sort)  # manifest covers every file
 ```
 

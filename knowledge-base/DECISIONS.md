@@ -285,7 +285,7 @@ protection has nothing left to object to. An earlier note in this file recorded
 used a *fresh* commit with no check runs, which is a different case, and
 generalising from it was wrong.
 
-**Consequence for the re-delivery exception** (D14, step 3 of the integrity gate):
+**Consequence for the re-delivery exception** (step 3 of the integrity gate; it lives in `ci.yml` and `CLAUDE.md`, not in a D-entry):
 its stated justification was "the exception lands in a diff a reviewer reads".
 For a solo repository that is a convention, not a control. The exception is still
 narrow — it requires the pinned digest to change in the same commit — but it is
@@ -295,4 +295,4 @@ honest to say it is enforced by discipline rather than by GitHub.
 approving review. That is a team property, not a configuration trick, and it is
 the only thing that closes it.
 
-**Last updated**: 2026-08-10 · after PR #1 (bronze), sixth review round
+**Last updated**: 2026-08-10 · after PR #7, eighth review round

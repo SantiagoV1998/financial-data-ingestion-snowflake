@@ -24,19 +24,38 @@ Thumbs.db
 tmp/
 *.tmp
 
-# Nothing under data/ may ever be ignored.
+# Delivered data formats under data/ are never ignored.
 #
-# The patterns above are not exotic and a client delivery could match any of
-# them — credentials*, *.key, *.tmp, config.toml, .env.* all describe plausible
-# filenames. A delivered file that `git add` silently skips is invisible to
-# every integrity check, because both the manifest and the coverage comparison
-# derive from the git index: it never reaches Snowflake while CI reports green
-# and the documentation asserts the delivery is committed byte-identical.
+# WHY THIS BLOCK EXISTS. Both the manifest and the coverage check derive from the
+# git index, so a delivered file that `git add` silently skips is invisible to
+# every integrity gate: it never reaches Snowflake while CI reports green and the
+# documentation asserts the delivery is committed byte-identical. The patterns
+# above are not exotic — a delivery containing config.toml or an *.tmp export
+# would hit them.
 #
-# This negation is the fix. An earlier attempt used a CI step running
-# `git ls-files --others --ignored -- data/`, which can never fire: that lists
-# untracked files in the working tree, and a fresh CI checkout contains only
-# tracked ones — so the check passed unconditionally while the blind spot stayed
-# fully open. The property has to hold at the point files are staged, not in CI.
-!data/**
+# WHY IT IS SCOPED. An earlier version used a blanket `!data/**`, which silently
+# re-enabled committing credentials: .env, rsa_key.p8, secrets.pem and
+# credentials.csv under data/ all became stageable in a PUBLIC repository, and
+# the documented re-delivery step is a blanket `git add data`. Closing a
+# visibility gap must not open a disclosure one. Only the five delivered formats
+# are re-included.
+!data/**/*.csv
+!data/**/*.CSV
+!data/**/*.xml
+!data/**/*.json
+!data/**/*.txt
 
+# ...but never a credential, even carrying a data extension. Last match wins, so
+# these come after the re-inclusions above. A file named credentials.csv is a
+# secret first and a CSV second; if a delivery genuinely contains one, it must be
+# renamed or handled out of band, not committed here.
+data/**/credentials*
+data/**/*secret*
+data/**/*password*
+data/**/.env*
+data/**/*.key
+data/**/*.pem
+data/**/*.p8
+
+# CI step 2b probes these properties, so removing or shadowing this block fails
+# the build rather than silently reopening the gap.

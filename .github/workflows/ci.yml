@@ -115,6 +115,70 @@ jobs:
                <(sed 's/^[0-9a-f]\{64\}  //' data/CHECKSUMS.sha256 | sort) \
             || { echo "::error::data/ and CHECKSUMS.sha256 list different files"; exit 1; }
 
+      # Steps 1 and 2 both derive from the git index, and so does the manifest,
+      # so a delivered file that `git add` silently skips is invisible to all of
+      # them — it never reaches Snowflake while CI reports green.
+      #
+      # This checks the .gitignore *properties*, not the presence of files. An
+      # earlier version ran `git ls-files --others --ignored -- data/`, which
+      # cannot work in CI: it lists untracked working-tree files, and a fresh
+      # checkout has only tracked ones, so it passed unconditionally while the
+      # blind spot stayed open.
+      #
+      # Both directions are tested, because the two failure modes are opposite
+      # and fixing one has already caused the other:
+      #   · a delivered format must never be ignorable — otherwise the next
+      #     delivery vanishes silently (gitignore does not affect already-tracked
+      #     files, so the damage only appears on the following delivery)
+      #   · a credential must always stay ignored — a blanket `!data/**` once
+      #     made .env, rsa_key.p8 and secrets.pem stageable in this public repo
+      #
+      # Real tracked paths are probed, not just synthetic names: a pattern like
+      # `*.xml` appended after the re-inclusions would shadow all seven
+      # ClientA_Transactions fragments while any fixed probe list stayed green.
+      - name: 2b · .gitignore protects deliveries and still blocks secrets
+        run: |
+          set -uo pipefail
+          failed=0
+
+          # check-ignore: 0 = ignored, 1 = not ignored, 128 = error.
+          # 128 must not be read as "not ignored" — this is a fail-closed gate.
+          probe() {
+            git check-ignore --no-index -q "$1"
+            case "$?" in
+              0) echo ignored ;;
+              1) echo visible ;;
+              *) echo error ;;
+            esac
+          }
+
+          # Every tracked delivery, by its real name, must stay visible.
+          while IFS= read -r f; do
+            case "$(probe "$f")" in
+              ignored) echo "::error::.gitignore hides the delivered file $f — the next delivery of it would be invisible to every other check."; failed=1 ;;
+              error)   echo "::error::git check-ignore failed on $f"; failed=1 ;;
+            esac
+          done < <(git -c core.quotePath=false ls-files data | grep -vx 'data/CHECKSUMS\.sha256')
+
+          # Hypothetical deliveries in each delivered format must be stageable.
+          for probe_file in Orders.csv Orders.CSV Transactions.xml transactions.json Transactions.txt; do
+            case "$(probe "data/probe_client/$probe_file")" in
+              ignored) echo "::error::.gitignore would hide a delivered data/probe_client/$probe_file"; failed=1 ;;
+              error)   echo "::error::git check-ignore failed on data/probe_client/$probe_file"; failed=1 ;;
+            esac
+          done
+
+          # Credentials must stay ignored even carrying a data extension.
+          for secret in credentials.csv api_secret.json .env .env.local rsa_key.p8 signing.key secrets.pem; do
+            case "$(probe "data/probe_client/$secret")" in
+              visible) echo "::error::.gitignore would allow committing data/probe_client/$secret to a public repository."; failed=1 ;;
+              error)   echo "::error::git check-ignore failed on data/probe_client/$secret"; failed=1 ;;
+            esac
+          done
+
+          [ "$failed" -eq 0 ] || exit 1
+          echo "Deliveries stay visible; credentials stay ignored."
+
       # Runs on pushes too. Restricting this to pull_request would leave a
       # direct push to main verified only by steps 1 and 2 — which is precisely
       # the hole this step exists to close, relocated rather than fixed.
@@ -137,29 +201,6 @@ jobs:
       # could not turn CI green, and an admin merge reproduced the same red
       # main. Reading the workflow diff here is what makes the documented
       # remedy true.
-      # Steps 1 and 2 both derive from the git index, and so does the manifest,
-      # so a delivered file that `git add` silently skips is invisible to all of
-      # them — it never reaches Snowflake while CI reports green.
-      #
-      # This checks the .gitignore *property*, not the presence of files. An
-      # earlier version ran `git ls-files --others --ignored -- data/`, which
-      # cannot work in CI: that lists untracked working-tree files, and a fresh
-      # checkout has only tracked ones, so it passed unconditionally while the
-      # blind spot stayed open. The real fix is the `!data/**` negation in
-      # .gitignore; this step exists to stop that negation being removed or
-      # shadowed by a later pattern.
-      - name: 2b · .gitignore cannot hide a delivered file
-        run: |
-          failed=0
-          for probe in credentials_export.csv signing.key Ordenes.tmp config.toml .env.local secrets.pem; do
-            if git check-ignore -q "data/probe_client/$probe"; then
-              echo "::error::.gitignore would hide data/probe_client/$probe — a delivery with that name would be invisible to every other check."
-              failed=1
-            fi
-          done
-          [ "$failed" -eq 0 ] || exit 1
-          echo ".gitignore cannot hide anything under data/."
-
       - name: 3 · Source files unchanged relative to the base
         env:
           # Passed through env rather than interpolated into the script. A branch

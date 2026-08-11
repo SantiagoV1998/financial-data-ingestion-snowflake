@@ -152,4 +152,4 @@ The re-delivery exception is therefore enforced by discipline, not by GitHub.
   Claims about data are cheap to check and expensive to get wrong.
 - Documentation is updated in the same PR as the code it describes.
 
-**Last updated**: 2026-08-10 · after PR #1 (bronze), sixth review round
+**Last updated**: 2026-08-10 · after PR #7, eighth review round
