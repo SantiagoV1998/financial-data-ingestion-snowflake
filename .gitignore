@@ -1,79 +1,65 @@
 # Credentials — never commit.
 #
-# rsa_key* and credentials* are anchored to the repository root. Unanchored they
-# also match DIRECTORY names, so data/client_c/credentials/Orders.csv was
-# swallowed whole — git does not descend into an excluded directory, and no
-# re-inclusion can rescue what is inside one. Under data/, credential-shaped
-# names are caught loudly by scripts/check-data-integrity.sh instead; everywhere
-# else the extension rules below still apply at any depth.
+# These are the ordinary hygiene rules. Detection of secrets by CONTENT is
+# handled by GitHub secret scanning with push protection, enabled on this
+# repository: it recognises real credential material (AWS keys, RSA private
+# keys, provider tokens) and blocks the push before it lands.
+#
+# That division matters. An earlier version of this file tried to identify
+# secrets by guessing at filenames, and it could not be made to work: too broad
+# and it swallowed deliveries whole (a bundle under data/tokens/ vanished, with
+# every check green), too narrow and API_KEY.csv sailed through. Filename
+# guessing has no floor — there is always another name.
 *.p8
 *.pem
 *.key
-config.toml
+*.env
 .env
 .env.*
-/rsa_key*
-/credentials*
-
-# Snowflake CLI local state. Both filenames are listed explicitly because the
-# directory rule is anchored to the repo root (so it cannot swallow a delivery),
-# which leaves a nested .snowflake/ unprotected — and SNOWFLAKE_HOME can point
-# anywhere. connections.toml is what the modern `snow` CLI stores credentials in.
-/.snowflake/
+config.toml
 connections.toml
+credentials*
+rsa_key*
+
+# Snowflake CLI local state
+.snowflake/
 
 # OS
 .DS_Store
 Thumbs.db
 
 # Editors
-/.vscode/
-/.idea/
+.vscode/
+.idea/
 *.swp
 
 # Temporary exports
-/tmp/
+tmp/
 *.tmp
 
 # ── data/ ──────────────────────────────────────────────────────────────────────
 #
-# Nothing under data/ is ignored by NAME. Only extensions that are never a
-# delivered record are ignored here.
+# The delivered source files must survive `git add`. Both the manifest and the
+# coverage check derive from the git index, so a delivery that git silently
+# skips is invisible to every integrity gate: it never reaches Snowflake while
+# CI reports green and the documentation asserts the delivery is complete.
 #
-# WHY. Both the manifest and the coverage check derive from the git index, so a
-# delivered file that `git add` silently skips is invisible to every integrity
-# gate: it never reaches Snowflake while CI reports green and the documentation
-# asserts the delivery is byte-identical.
+# The rules above are ordinary and would swallow plausible deliveries —
+# Orders.tmp, config.toml, a stray .DS_Store beside the payload. These
+# re-inclusions cover the five formats actually delivered, at any depth.
 #
-# Guarding that with name patterns cannot work, because both mistakes are silent.
-# Too broad and a delivery vanishes: `*token*` swallowed PaymentTokens.csv and,
-# worse, everything under data/tokens/ — git does not descend into an excluded
-# directory, so no re-inclusion can rescue what is inside one. Too narrow and
-# secrets.json stayed committable while the comment promised full coverage. Nine
-# review rounds moved that line back and forth, each fix breaking the other side.
-#
-# So the mechanism changed. Names are not guessed at here at all. A credential
-# carrying a data extension is caught by scripts/check-data-integrity.sh, which
-# FAILS THE BUILD loudly and lets a human decide. Failing loudly beats ignoring
-# silently: a false positive costs one conversation, a false negative costs a
-# lost delivery or a published secret.
+# scripts/check-data-integrity.sh asserts this holds, including for paths inside
+# directories the rules above exclude, and fails the build if a delivery would be
+# invisible.
+# The directory re-inclusion comes FIRST and is load-bearing. Git does not
+# descend into an excluded directory, so `!data/**/*.csv` alone cannot rescue a
+# file inside one: a delivery under data/client_c/tmp/ or data/client_c/tokens/
+# stayed invisible because `tmp/` and `credentials*` match directory names too.
+# Re-including the directories lets git look inside; the extension rules then
+# decide file by file.
+!data/**/
 !data/**/*.csv
 !data/**/*.CSV
 !data/**/*.xml
 !data/**/*.json
 !data/**/*.txt
-
-# Extensions that are never delivered data. Safe to ignore by extension, since
-# no payload can hide behind one.
-data/**/*.[Kk][Ee][Yy]
-data/**/*.[Pp][Ee][Mm]
-data/**/*.[Pp]8
-data/**/.[Ee][Nn][Vv]*
-
-# The directory patterns earlier in this file (/tmp/, /.snowflake/, /.vscode/,
-# /.idea/) are anchored to the repository root on purpose: unanchored, `tmp/`
-# swallowed data/client_c/tmp/Orders.csv and nothing noticed.
-#
-# scripts/check-data-integrity.sh asserts every property above — deliveries
-# visible, non-data extensions ignored, no credential-shaped name tracked — and
-# runs identically in CI and locally.

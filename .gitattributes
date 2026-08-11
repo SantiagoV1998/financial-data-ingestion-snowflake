@@ -4,6 +4,11 @@
 *.yml   text
 *.yaml  text
 
+# The integrity script must be LF. Committed with CRLF from a Windows checkout,
+# CI dies with "/usr/bin/env: 'bash\r': No such file or directory" — the same
+# class of failure this file exists to prevent.
+*.sh    text eol=lf
+
 # ...except the source data. In gitattributes the LAST matching rule wins, so
 # this block must stay below the extension rules above: placed before them, a
 # delivery containing data/client_c/schema.yaml or data/client_b/README.md would

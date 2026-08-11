@@ -35,10 +35,10 @@ an RSA key pair at `~/.snowflake/keys/` (Snowflake blocks password-only
 programmatic sign-in). Neither the config nor the key is in this repo, and `.gitignore` keeps it that
 way — including under `data/`, where the re-inclusion of delivered formats is
 deliberately scoped to `*.csv/*.CSV/*.xml/*.json/*.txt` and credential names are
-re-excluded after it. Under `data/` nothing is ignored by name — a delivery must never vanish because
-of what it is called. A credential carrying a data extension is caught by
-`scripts/check-data-integrity.sh`, which fails the build loudly so a human
-decides. See the header of that script for why guessing by filename cannot work.
+re-excluded after it. Under `data/`, the five delivered formats are re-included at any depth so a
+delivery cannot vanish, and `scripts/check-data-integrity.sh` asserts that —
+including for paths inside directories the ordinary rules exclude, and for files
+sitting on disk that `git add` would skip.
 
 Target: database `financial_ingestion`, warehouse `wh_ingestion`, schemas
 `bronze` / `silver` / `gold`, role **`ingestion_engineer`**.
@@ -72,7 +72,9 @@ that loads everything.
 ```bash
 sqlfluff lint sql/                      # dialect snowflake, config in .sqlfluff
 shasum -a 256 -c data/CHECKSUMS.sha256  # bytes match the manifest
-./scripts/check-data-integrity.sh       # 61 invariants over data/
+diff <(git -c core.quotePath=false ls-files data | grep -vx 'data/CHECKSUMS\.sha256' | sort) \
+     <(sed 's/^[0-9a-f]\{64\}  //' data/CHECKSUMS.sha256 | sort)  # manifest coverage
+./scripts/check-data-integrity.sh       # data/ invariants (prints its own count)
 ```
 
 `check-data-integrity.sh` is the same script CI runs, so it cannot pass locally
