@@ -261,6 +261,87 @@ SELECT 'TOTAL' AS scope,
 FROM v_rule_coverage;
 
 /* ---------------------------------------------------------------------------
+   Master-data coverage — the other half of the ground truth
+   ----------------------------------------------------------------------------
+   The CSV deliveries annotate their own anomalies inline, exactly as the XML
+   and JSON do with comments. Those 28 annotations were extracted and reported,
+   but no rule evaluated them, so they sat outside the coverage denominator
+   while the published figure read 100%. That is the failure the header above
+   argues against, committed one file over.
+
+   The mapping is explicit rather than inferred from string similarity: an
+   annotation names a defect in the delivery's words, and this view states which
+   rule code is expected to fire for it. A rule that stops firing turns the
+   annotation into a MISSED here rather than disappearing from the total.
+   ------------------------------------------------------------------------ */
+CREATE OR REPLACE VIEW v_master_label_expectations AS
+WITH keyed AS (
+    SELECT entity, source_system, natural_key, source_annotation,
+           entity || '|' || source_annotation AS label_key
+    FROM   v_master_annotations
+)
+SELECT a.entity, a.source_system, a.natural_key, a.source_annotation AS label,
+       CASE a.label_key
+         WHEN 'customers|duplicate'                    THEN ARRAY_CONSTRUCT('DUPLICATE_CUSTOMER_ID')
+         WHEN 'customers|invalid email'                THEN ARRAY_CONSTRUCT('INVALID_EMAIL')
+         WHEN 'customers|invalid email + missing name'
+              THEN ARRAY_CONSTRUCT('INVALID_EMAIL', 'MISSING_CUSTOMER_NAME')
+         WHEN 'customers|missing email'                THEN ARRAY_CONSTRUCT('MISSING_MASTER_EMAIL')
+         WHEN 'customers|null-heavy row'
+              THEN ARRAY_CONSTRUCT('MISSING_CUSTOMER_NAME', 'MISSING_MASTER_EMAIL')
+         WHEN 'customers|null-heavy anomaly row'
+              THEN ARRAY_CONSTRUCT('MISSING_CUSTOMER_NAME', 'MISSING_MASTER_EMAIL')
+         WHEN 'orders|duplicate'                       THEN ARRAY_CONSTRUCT('DUPLICATE_MASTER_ORDER_ID')
+         WHEN 'orders|duplicate customer'
+              THEN ARRAY_CONSTRUCT('ORDER_REFERENCES_DUPLICATED_CUSTOMER')
+         WHEN 'orders|invalid customer'                THEN ARRAY_CONSTRUCT('ORPHAN_MASTER_CUSTOMER')
+         WHEN 'orders|missing date'                    THEN ARRAY_CONSTRUCT('MISSING_MASTER_ORDER_DATE')
+         WHEN 'payments|duplicate'                     THEN ARRAY_CONSTRUCT('DUPLICATE_PAYMENT_ID')
+         WHEN 'payments|negative'                      THEN ARRAY_CONSTRUCT('NEGATIVE_PAYMENT_AMOUNT')
+         WHEN 'payments|negative amount'               THEN ARRAY_CONSTRUCT('NEGATIVE_PAYMENT_AMOUNT')
+         WHEN 'products|anomaly'                       THEN ARRAY_CONSTRUCT('ZERO_LIST_PRICE')
+         WHEN 'products|duplicate'                     THEN ARRAY_CONSTRUCT('DUPLICATE_SKU')
+         WHEN 'products|negative price'                THEN ARRAY_CONSTRUCT('NEGATIVE_LIST_PRICE')
+       END AS acceptable_rules
+FROM   keyed AS a;
+
+CREATE OR REPLACE VIEW v_master_rule_coverage AS
+SELECT x.entity, x.source_system, x.natural_key, x.label,
+       x.acceptable_rules,
+       IFF(EXISTS (
+             SELECT 1
+             FROM   dq_quarantine AS q
+             WHERE  q.source_system = x.source_system
+               AND  q.entity        = RTRIM(x.entity, 's')
+               AND  q.natural_key   = x.natural_key
+               AND  ARRAY_CONTAINS(q.rule_code::VARIANT, x.acceptable_rules)
+           ), 'DETECTED', 'MISSED') AS outcome
+FROM   v_master_label_expectations AS x;
+
+SELECT entity, label,
+       COUNT(*)                             AS labelled,
+       SUM(IFF(outcome = 'DETECTED', 1, 0)) AS detected,
+       SUM(IFF(outcome = 'MISSED', 1, 0))   AS missed
+FROM   v_master_rule_coverage
+GROUP  BY entity, label
+ORDER  BY missed DESC, labelled DESC;
+
+/* The single figure the README and dashboard publish: transactions AND master,
+   one denominator. Reporting them apart is how the master half stayed at zero
+   coverage while the headline said 100%. */
+CREATE OR REPLACE VIEW v_total_coverage AS
+SELECT 'transactions' AS scope, COUNT(*) AS labelled,
+       SUM(IFF(outcome = 'DETECTED', 1, 0)) AS detected
+FROM   v_rule_coverage
+UNION ALL
+SELECT 'master', COUNT(*), SUM(IFF(outcome = 'DETECTED', 1, 0))
+FROM   v_master_rule_coverage;
+
+SELECT scope, labelled, detected FROM v_total_coverage
+UNION ALL
+SELECT 'TOTAL', SUM(labelled), SUM(detected) FROM v_total_coverage;
+
+/* ---------------------------------------------------------------------------
    Labels deliberately out of scope
    ----------------------------------------------------------------------------
    Not every label describes a data-quality defect. "extra nested <Warranty>"

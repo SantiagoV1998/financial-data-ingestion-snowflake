@@ -68,7 +68,14 @@ SELECT
     'CLIENT_A'                            AS source_system,
     SYSDATE()                             AS parsed_at
 FROM   document AS d,
-       LATERAL FLATTEN(INPUT => d.doc:"$") AS f
+       -- TO_ARRAY for the reason 02_extract_transactions documents at length: a
+       -- repeated XML element with exactly ONE occurrence is not an array, and
+       -- FLATTEN then iterates that element's CHILDREN instead. The synthetic
+       -- root holds 46 children today so the shape is an array either way, but a
+       -- re-delivery carrying a single transaction would flatten into
+       -- TransactionID / Order / Payment / Items, none of which matches the
+       -- filter below — yielding zero rows, silently, from a valid document.
+       LATERAL FLATTEN(INPUT => TO_ARRAY(d.doc:"$")) AS f
 WHERE  f.value:"@"::VARCHAR = 'Transaction';
 
 /* ---------------------------------------------------------------------------
