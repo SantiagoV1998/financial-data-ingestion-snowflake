@@ -319,14 +319,22 @@ SELECT source_system, 'transaction_item', transaction_id, document_position, lin
 FROM v_all_transaction_items
 WHERE raw_payload IS NOT NULL AND unit_price IS NULL;
 
--- A negative unit price has no comparable reading. Prices are not signed.
+-- WARN, not REJECT. An earlier version rejected these because "prices are not
+-- signed" — which contradicts this file's own definition of REJECT ("nothing to
+-- key on, or nothing to load") and the symmetric treatment of negative quantity.
+--
+-- The data settles it. TXN-1011 delivers one line at qty 1 x -9.99 against a
+-- stated payment of -9.99: the source is internally CONSISTENT, a refund.
+-- Rejecting the line left that transaction with no lines, a -9.99 variance and
+-- variance_is_comparable = FALSE — turning a perfectly reconciled record into an
+-- unreconcilable one and dropping its only line from fact_order_item.
 INSERT INTO dq_quarantine
     (source_system, entity, natural_key, document_position, line_number,
      rule_code, rule_detail, severity, raw_payload)
 SELECT source_system, 'transaction_item', transaction_id, document_position, line_number,
        'NEGATIVE_UNIT_PRICE',
-       'Unit price is ' || unit_price || ', which no reading makes valid',
-       'REJECT', raw_payload
+       'Unit price is ' || unit_price || ' — may be a refund line',
+       'WARN', raw_payload
 FROM v_all_transaction_items WHERE unit_price < 0;
 
 INSERT INTO dq_quarantine

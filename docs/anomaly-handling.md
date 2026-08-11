@@ -42,7 +42,7 @@ set, and the client decides.
 
 ## The rules
 
-**13 REJECT findings · 118 WARN findings · 131 total**
+**11 REJECT findings · 120 WARN findings · 131 total**
 
 ### Transaction level
 
@@ -70,7 +70,7 @@ set, and the client decides.
 |---|---|---|---|
 | `MISSING_SKU` | REJECT | 5 | Cannot be matched to a product |
 | `MISSING_QUANTITY` | REJECT | 1 | Nothing to multiply |
-| `NEGATIVE_UNIT_PRICE` | REJECT | 2 | **No reading makes this valid** — prices are not signed |
+| `NEGATIVE_UNIT_PRICE` | WARN | 2 | **May be a refund line** — TXN-1011 is internally consistent: qty 1 × −9.99 against a stated payment of −9.99 |
 | `NEGATIVE_QUANTITY` | WARN | 9 | **May be a return line** — flagged, not dropped |
 | `MISSING_DESCRIPTION` | WARN | 1 | Cosmetic; the SKU carries the identity |
 | `ORPHAN_SKU` | WARN | 20 | SKU has no product master record |
@@ -263,7 +263,7 @@ Nothing detected it: there was no `ORPHAN_ORDER` rule and no
 `fact_transaction_order_resolves` check — while the validation script's own header
 said "what must never happen is a key that points at nothing".
 
-Both are now asserted. The canonical validation grew from 20 invariants to 28 as
+Both are now asserted. The canonical validation grew from 20 invariants to 29 as
 each defect was closed.
 
 The variance figures moved twice before settling, and the history matters more

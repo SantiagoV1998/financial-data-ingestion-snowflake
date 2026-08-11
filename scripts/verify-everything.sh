@@ -97,8 +97,13 @@ data/client_b/Payments.csv|PAY-C-|raw_client_b_payments
 ROWS
 
 head_ "4 · Assertions the pipeline makes about itself"
-b=$(snow sql -c "$CONN" -f sql/01_bronze/05_validate_bronze.sql 2>&1 | grep -c '| PASS')
-[ "$b" -ge 14 ] && ok "bronze: $b invariants pass" || bad "bronze: only $b pass"
+# Captured once and checked for FAIL, not just counted for PASS. Counting passes
+# alone is the asymmetry already fixed for gold below: add a 15th check and
+# 14 PASS + 1 FAIL would still have read as green.
+bout=$(snow sql -c "$CONN" -f sql/01_bronze/05_validate_bronze.sql 2>&1)
+b=$(printf '%s' "$bout" | grep -c '| PASS')
+bf=$(printf '%s' "$bout" | grep -c '| FAIL')
+[ "$bf" = "0" ] && ok "bronze: $b invariants pass, 0 fail" || bad "bronze: $bf FAILING"
 # Captured ONCE. Running it twice and grepping each run separately reported a
 # pass count and a fail count from two different executions.
 gout=$(snow sql -c "$CONN" -f sql/03_gold/03_validate_canonical.sql 2>&1)
@@ -161,7 +166,12 @@ check_doc knowledge-base/README.md "$cov/$cov"       "$cov/$cov coverage"
 check_doc docs/anomaly-handling.md "to $inv"         "$inv invariants"
 check_doc docs/anomaly-handling.md "$findings total" "$findings findings"
 # The published variance must be the warehouse's current value, and any other
-# figure may appear ONLY inside the history table that explains it. Banning the
+# figure may appear ONLY inside the history table that explains it. The allowed
+# list below holds figures used to ILLUSTRATE a specific case in the prose —
+# TXN-1001's 97.48/6.48/91.00, C-TXN-3001's 149.99, TXN-1011's 9.99, TXN-1026's
+# 19.99. Adding a worked example means adding its numbers here, which is the
+# intended friction: an unexplained figure in a deliverable should cost
+# something. Banning the
 # old number outright was wrong: recording how a figure changed, and why, is the
 # point of the anomaly notes — the earlier check could not tell "published as
 # current" from "documented as superseded".
@@ -172,7 +182,7 @@ grep -q "$var_a" docs/anomaly-handling.md \
 # Any variance-shaped number outside the history table must be the current one.
 stray=$(awk '/^\| First published/,/^\| \*\*Current\*\*/ {next} /[0-9]+\.[0-9]{2}/ {print}' \
         docs/anomaly-handling.md | grep -oE '[0-9]+\.[0-9]{2}' \
-        | grep -vE "^($var_a|53\.94|149\.99|97\.48|91\.00|6\.48)$" | head -3)
+        | grep -vE "^($var_a|53\.94|149\.99|97\.48|91\.00|6\.48|9\.99|19\.99)$" | head -3)
 [ -z "$stray" ] \
     && ok "no stray variance figures outside the history table" \
     || bad "unexplained figures outside the history table: $(echo "$stray" | tr '\n' ' ')"

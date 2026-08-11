@@ -56,22 +56,16 @@
         "FINDINGS": 5
     },
     {
-        "RULE_CODE": "DUPLICATE_ORDER_ID",
-        "SEVERITY": "WARN",
-        "ENTITY": "transaction",
-        "FINDINGS": 4
-    },
-    {
         "RULE_CODE": "MISSING_EMAIL",
         "SEVERITY": "WARN",
         "ENTITY": "transaction",
         "FINDINGS": 4
     },
     {
-        "RULE_CODE": "INVALID_EMAIL",
+        "RULE_CODE": "DUPLICATE_ORDER_ID",
         "SEVERITY": "WARN",
         "ENTITY": "transaction",
-        "FINDINGS": 3
+        "FINDINGS": 4
     },
     {
         "RULE_CODE": "MISSING_CUSTOMER_NAME",
@@ -80,10 +74,10 @@
         "FINDINGS": 3
     },
     {
-        "RULE_CODE": "NEGATIVE_UNIT_PRICE",
-        "SEVERITY": "REJECT",
-        "ENTITY": "transaction_item",
-        "FINDINGS": 2
+        "RULE_CODE": "INVALID_EMAIL",
+        "SEVERITY": "WARN",
+        "ENTITY": "transaction",
+        "FINDINGS": 3
     },
     {
         "RULE_CODE": "MISSING_TRANSACTION_ID",
@@ -98,7 +92,19 @@
         "FINDINGS": 2
     },
     {
+        "RULE_CODE": "NEGATIVE_UNIT_PRICE",
+        "SEVERITY": "WARN",
+        "ENTITY": "transaction_item",
+        "FINDINGS": 2
+    },
+    {
         "RULE_CODE": "MISSING_PAYMENT_METHOD",
+        "SEVERITY": "WARN",
+        "ENTITY": "transaction",
+        "FINDINGS": 1
+    },
+    {
+        "RULE_CODE": "MISSING_PAYMENT_AMOUNT",
         "SEVERITY": "WARN",
         "ENTITY": "transaction",
         "FINDINGS": 1
@@ -110,20 +116,14 @@
         "FINDINGS": 1
     },
     {
-        "RULE_CODE": "MISSING_CUSTOMER_ID",
-        "SEVERITY": "REJECT",
-        "ENTITY": "transaction",
-        "FINDINGS": 1
-    },
-    {
         "RULE_CODE": "MISSING_DESCRIPTION",
         "SEVERITY": "WARN",
         "ENTITY": "transaction_item",
         "FINDINGS": 1
     },
     {
-        "RULE_CODE": "MISSING_PAYMENT_AMOUNT",
-        "SEVERITY": "WARN",
+        "RULE_CODE": "MISSING_CUSTOMER_ID",
+        "SEVERITY": "REJECT",
         "ENTITY": "transaction",
         "FINDINGS": 1
     }
@@ -131,23 +131,23 @@
 [
     {
         "SOURCE_SYSTEM": "CLIENT_B",
+        "SEVERITY": "WARN",
+        "FINDINGS": 9
+    },
+    {
+        "SOURCE_SYSTEM": "CLIENT_B",
         "SEVERITY": "REJECT",
         "FINDINGS": 1
     },
     {
         "SOURCE_SYSTEM": "CLIENT_A",
         "SEVERITY": "WARN",
-        "FINDINGS": 109
+        "FINDINGS": 111
     },
     {
         "SOURCE_SYSTEM": "CLIENT_A",
         "SEVERITY": "REJECT",
-        "FINDINGS": 12
-    },
-    {
-        "SOURCE_SYSTEM": "CLIENT_B",
-        "SEVERITY": "WARN",
-        "FINDINGS": 9
+        "FINDINGS": 10
     }
 ],"coverage":
 [
@@ -162,11 +162,6 @@
         "DETECTED": 8
     },
     {
-        "EXPECTED_RULE": "NEGATIVE_PAYMENT_AMOUNT",
-        "LABELLED": 4,
-        "DETECTED": 4
-    },
-    {
         "EXPECTED_RULE": "MISSING_ORDER_DATE",
         "LABELLED": 4,
         "DETECTED": 4
@@ -177,12 +172,12 @@
         "DETECTED": 4
     },
     {
-        "EXPECTED_RULE": "MISSING_SKU",
-        "LABELLED": 3,
-        "DETECTED": 3
+        "EXPECTED_RULE": "NEGATIVE_PAYMENT_AMOUNT",
+        "LABELLED": 4,
+        "DETECTED": 4
     },
     {
-        "EXPECTED_RULE": "INVALID_EMAIL",
+        "EXPECTED_RULE": "MISSING_SKU",
         "LABELLED": 3,
         "DETECTED": 3
     },
@@ -192,12 +187,12 @@
         "DETECTED": 3
     },
     {
-        "EXPECTED_RULE": "MISSING_CUSTOMER_NAME",
-        "LABELLED": 2,
-        "DETECTED": 2
+        "EXPECTED_RULE": "INVALID_EMAIL",
+        "LABELLED": 3,
+        "DETECTED": 3
     },
     {
-        "EXPECTED_RULE": "MISSING_ORDER_ID",
+        "EXPECTED_RULE": "MISSING_CUSTOMER_NAME",
         "LABELLED": 2,
         "DETECTED": 2
     },
@@ -207,12 +202,27 @@
         "DETECTED": 2
     },
     {
+        "EXPECTED_RULE": "MISSING_ORDER_ID",
+        "LABELLED": 2,
+        "DETECTED": 2
+    },
+    {
         "EXPECTED_RULE": "DUPLICATE_ORDER_ID",
         "LABELLED": 2,
         "DETECTED": 2
     },
     {
-        "EXPECTED_RULE": "MISSING_PAYMENT_METHOD",
+        "EXPECTED_RULE": "MISSING_QUANTITY",
+        "LABELLED": 1,
+        "DETECTED": 1
+    },
+    {
+        "EXPECTED_RULE": "MISSING_DESCRIPTION",
+        "LABELLED": 1,
+        "DETECTED": 1
+    },
+    {
+        "EXPECTED_RULE": "MISSING_CUSTOMER_ID",
         "LABELLED": 1,
         "DETECTED": 1
     },
@@ -222,12 +232,7 @@
         "DETECTED": 1
     },
     {
-        "EXPECTED_RULE": "MISSING_QUANTITY",
-        "LABELLED": 1,
-        "DETECTED": 1
-    },
-    {
-        "EXPECTED_RULE": "MISSING_CUSTOMER_ID",
+        "EXPECTED_RULE": "MISSING_PAYMENT_METHOD",
         "LABELLED": 1,
         "DETECTED": 1
     },
@@ -242,11 +247,6 @@
         "DETECTED": 1
     },
     {
-        "EXPECTED_RULE": "MISSING_DESCRIPTION",
-        "LABELLED": 1,
-        "DETECTED": 1
-    },
-    {
         "EXPECTED_RULE": "ORPHAN_SKU or MISSING_SKU",
         "LABELLED": 1,
         "DETECTED": 1
@@ -254,12 +254,12 @@
 ],"classification":
 [
     {
-        "CLASSIFICATION": "MAPPED_TO_RULE",
-        "LABELS": 45
-    },
-    {
         "CLASSIFICATION": "SCHEMA_VARIATION_BY_DESIGN",
         "LABELS": 7
+    },
+    {
+        "CLASSIFICATION": "MAPPED_TO_RULE",
+        "LABELS": 45
     }
 ],"variance":
 [
@@ -275,7 +275,7 @@
         "TXNS": 37,
         "WITH_VARIANCE": 9,
         "TOTAL_ABS_VARIANCE": "694.76",
-        "NOT_COMPARABLE": 7
+        "NOT_COMPARABLE": 6
     }
 ],"client_rows":
 [
@@ -303,7 +303,7 @@
     },
     {
         "STAGE": "items_clean",
-        "ROW_COUNT": 41
+        "ROW_COUNT": 43
     },
     {
         "STAGE": "customers_clean",
@@ -333,7 +333,7 @@
     },
     {
         "ENTITY": "items",
-        "N": 41
+        "N": 43
     },
     {
         "ENTITY": "customers",
@@ -355,23 +355,8 @@
         "RECORDS": 5
     },
     {
-        "ENTITY": "products",
-        "SOURCE_ANNOTATION": "duplicate",
-        "RECORDS": 2
-    },
-    {
-        "ENTITY": "orders",
-        "SOURCE_ANNOTATION": "duplicate",
-        "RECORDS": 2
-    },
-    {
         "ENTITY": "customers",
         "SOURCE_ANNOTATION": "invalid email",
-        "RECORDS": 2
-    },
-    {
-        "ENTITY": "orders",
-        "SOURCE_ANNOTATION": "duplicate customer",
         "RECORDS": 2
     },
     {
@@ -390,9 +375,29 @@
         "RECORDS": 2
     },
     {
+        "ENTITY": "orders",
+        "SOURCE_ANNOTATION": "duplicate customer",
+        "RECORDS": 2
+    },
+    {
+        "ENTITY": "products",
+        "SOURCE_ANNOTATION": "duplicate",
+        "RECORDS": 2
+    },
+    {
+        "ENTITY": "orders",
+        "SOURCE_ANNOTATION": "duplicate",
+        "RECORDS": 2
+    },
+    {
         "ENTITY": "products",
         "SOURCE_ANNOTATION": "anomaly",
         "RECORDS": 2
+    },
+    {
+        "ENTITY": "payments",
+        "SOURCE_ANNOTATION": "negative amount",
+        "RECORDS": 1
     },
     {
         "ENTITY": "customers",
@@ -405,13 +410,13 @@
         "RECORDS": 1
     },
     {
-        "ENTITY": "payments",
-        "SOURCE_ANNOTATION": "negative amount",
+        "ENTITY": "customers",
+        "SOURCE_ANNOTATION": "null-heavy anomaly row",
         "RECORDS": 1
     },
     {
         "ENTITY": "payments",
-        "SOURCE_ANNOTATION": "negative",
+        "SOURCE_ANNOTATION": "duplicate",
         "RECORDS": 1
     },
     {
@@ -420,13 +425,8 @@
         "RECORDS": 1
     },
     {
-        "ENTITY": "customers",
-        "SOURCE_ANNOTATION": "null-heavy anomaly row",
-        "RECORDS": 1
-    },
-    {
         "ENTITY": "payments",
-        "SOURCE_ANNOTATION": "duplicate",
+        "SOURCE_ANNOTATION": "negative",
         "RECORDS": 1
     }
 ]}

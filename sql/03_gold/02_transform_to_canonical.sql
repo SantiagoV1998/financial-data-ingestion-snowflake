@@ -64,11 +64,23 @@ SELECT
         REGEXP_LIKE(email, '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'))
                                               AS email_is_valid,
     tier_raw,
+    -- Each client's full scale, ranked within its own taxonomy. The delivery
+    -- carries more tiers than the obvious two per client: PLATINUM and BRONZE
+    -- for Client A, NEW for Client B. An earlier version mapped only GOLD/SILVER
+    -- and VIP/REGULAR, leaving 7 of 43 customers unranked — including the two
+    -- PLATINUM ones, which sit ABOVE gold, so ordering by rank presented GOLD as
+    -- the top tier. Exactly backwards from what this column claims to mean.
+    --
+    -- UNKNOWN stays NULL deliberately: it is the absence of a tier, not a tier.
+    -- Rank 1 is each client's own top tier; nothing here equates the two scales.
     CASE UPPER(tier_raw)
-        WHEN 'GOLD'    THEN 1   -- Client A top tier
-        WHEN 'VIP'     THEN 1   -- Client B top tier — same RANK, not the same tier
-        WHEN 'SILVER'  THEN 2
-        WHEN 'REGULAR' THEN 2
+        WHEN 'PLATINUM' THEN 1   -- Client A
+        WHEN 'GOLD'     THEN 2
+        WHEN 'SILVER'   THEN 3
+        WHEN 'BRONZE'   THEN 4
+        WHEN 'VIP'      THEN 1   -- Client B — same rank, not the same tier
+        WHEN 'REGULAR'  THEN 2
+        WHEN 'NEW'      THEN 3                -- UNKNOWN, and anything not yet delivered
     END                                       AS tier_rank,
     signup_source,
     is_active
@@ -214,7 +226,13 @@ SELECT
     -- The variance only means "the source disagrees with itself" when every
     -- line was readable. Where lines were rejected the gap is partly ours, and
     -- reporting the two together would overstate the source's inconsistency.
-    COALESCE(rj.rejected_lines, 0) = 0                               AS variance_is_comparable,
+    -- Needs BOTH: every line readable, AND a payment to compare them against.
+    -- Checking only rejected lines marked TXN-1026 comparable — it has a
+    -- readable 19.99 line and no payment amount at all, so the variance is
+    -- unknown rather than zero, and the dashboard counted it as "payment
+    -- matches its lines".
+    (COALESCE(rj.rejected_lines, 0) = 0
+     AND t.payment_amount IS NOT NULL)                               AS variance_is_comparable,
     COALESCE(t.payment_currency, li.currency)                        AS currency,
     EXISTS(SELECT 1 FROM silver.dq_quarantine AS q
             -- Scoped to THIS copy. Without document_position a warning raised
@@ -224,7 +242,11 @@ SELECT
             WHERE q.source_system     = t.source_system
               AND q.natural_key       = t.transaction_id
               AND q.document_position = t.document_position
-              AND q.entity            = 'transaction'
+              -- Line-level warnings count too. Filtering to entity='transaction'
+              -- hid 30 of the 118 WARN findings — ORPHAN_SKU, NEGATIVE_QUANTITY,
+              -- MISSING_DESCRIPTION — so a consumer filtering for clean
+              -- transactions got ones with negative-quantity lines and orphan
+              -- SKUs, marked as carrying no warnings.
               AND q.severity          = 'WARN')                      AS has_quality_warning
 FROM      silver.transactions_clean AS t
 LEFT JOIN li

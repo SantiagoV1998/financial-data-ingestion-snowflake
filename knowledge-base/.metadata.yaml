@@ -63,7 +63,7 @@ layers:
     validation: sql/02_silver/05_validate_rules.sql   # 55/55 rule coverage, both clients
     tables:
       transactions_clean: 46
-      transaction_items_clean: 41
+      transaction_items_clean: 43
       customers_clean: 43
       products_clean: 37
       orders_clean: 40
@@ -71,13 +71,13 @@ layers:
       dq_quarantine: 131
   gold:
     status: complete
-    validation: sql/03_gold/03_validate_canonical.sql # 28 invariants, all passing
+    validation: sql/03_gold/03_validate_canonical.sql # 29 invariants, all passing
     tables:
       dim_customer: 43
       dim_product: 37
       fact_order: 40
       fact_transaction: 46
-      fact_order_item: 41
+      fact_order_item: 43
       fact_payment: 57
 
 parsed_volumes:            # validated in Snowflake, not yet materialised

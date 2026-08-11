@@ -74,9 +74,24 @@ WHERE  f.value:"@"::VARCHAR = 'Transaction';
 /* ---------------------------------------------------------------------------
    Client B — one row per transaction object
    ----------------------------------------------------------------------------
-   The (^|[^:]) guard on the comment strip is not decoration: a naive '//.*'
-   destroys every URL in the payload. Nothing in this delivery carries one, but
-   the next one might, and the cost of the guard is nothing.
+   The (^|[^:]) guard on the comment strip protects '://' so a URL survives.
+
+   KNOWN LIMITATION, stated rather than papered over: it does not distinguish a
+   comment from a '//' inside a string value. "description": "Cable // Adapter"
+   would be truncated mid-string, the document would fail to parse, and Client B
+   would come back empty.
+
+   A stricter pattern requiring comment context — a comma or line start before
+   the '//' — was tried and made it worse: it stopped matching the real comments
+   and produced 0 transactions instead of 11. Distinguishing comment from string
+   content is not a job a line-wise regex can do correctly, and pretending
+   otherwise is how the stricter version broke the delivery it was meant to
+   protect.
+
+   What makes this acceptable is that it fails LOUDLY: the assertion at the end
+   of this file compares against 11, which is where the stricter attempt was
+   caught within seconds. A silent wrong answer would not be acceptable; a loud
+   wrong answer with a named expected count is.
    ------------------------------------------------------------------------ */
 CREATE OR REPLACE TABLE parsed_client_b_transactions AS
 WITH cleaned_lines AS (

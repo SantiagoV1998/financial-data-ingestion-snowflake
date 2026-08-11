@@ -165,6 +165,16 @@ SELECT 'no_unknown_source_system', 0,
    status to UNKNOWN, these fail.                                              */
 UNION ALL
 -- Every customer with a delivered tier keeps the original text verbatim.
+-- The inverse direction, which was the one missing: a tier the delivery carries
+-- but the CASE does not map stays NULL and disappears from any ranked query.
+-- That is how PLATINUM — above GOLD — went unranked while GOLD read as the top.
+-- UNKNOWN is exempt: it is the absence of a tier, not an unmapped one.
+SELECT 'every_delivered_tier_is_ranked', 0,
+       (SELECT COUNT(*) FROM dim_customer
+        WHERE tier_raw IS NOT NULL
+          AND UPPER(tier_raw) <> 'UNKNOWN'
+          AND tier_rank IS NULL)
+UNION ALL
 SELECT 'tier_raw_preserved', 0,
        (SELECT COUNT(*) FROM dim_customer AS c
         WHERE c.tier_rank IS NOT NULL AND c.tier_raw IS NULL)
