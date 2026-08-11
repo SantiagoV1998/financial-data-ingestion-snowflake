@@ -59,9 +59,26 @@ layers:
       raw_client_b_products: 18
       raw_client_b_payments: 21
   silver:
-    status: pending
+    status: complete
+    validation: sql/02_silver/05_validate_rules.sql   # 49/49 rule coverage
+    tables:
+      transactions_clean: 46
+      transaction_items_clean: 39
+      customers_clean: 43
+      products_clean: 37
+      orders_clean: 40
+      payments_clean: 20
+      dq_quarantine: 131
   gold:
-    status: pending
+    status: complete
+    validation: sql/03_gold/03_validate_canonical.sql # 24 invariants, all passing
+    tables:
+      dim_customer: 43
+      dim_product: 37
+      fact_order: 40
+      fact_transaction: 46
+      fact_order_item: 39
+      fact_payment: 57
 
 parsed_volumes:            # validated in Snowflake, not yet materialised
   client_a_transactions:
@@ -88,5 +105,24 @@ pull_requests:
     review_confirmed: 22
     review_false_positives: 1
     review_rejected_as_disproportionate: 1
+  - number: 8
+    title: silver and gold — parsing, data quality, and the canonical model
+    scope: [silver, gold, dashboard, docs]
+    review_rounds: 1
+    review_findings: 9
+    review_confirmed: 9
+    notable: >
+      Found two defects that produced wrong figures without failing, after those
+      figures had already been published: line items leaking between copies of a
+      duplicated transaction (a phantom 91.00 variance on TXN-1001), and
+      order_key derived unconditionally so 19 transactions referenced orders that
+      were never created.
 
-last_updated: 2026-08-10
+deliverables:
+  raw_ingestion_ddl: sql/01_bronze/03_raw_ingestion_ddl.sql
+  canonical_ddl: sql/03_gold/01_canonical_ddl.sql
+  transformation_sql: [sql/02_silver/, sql/03_gold/02_transform_to_canonical.sql]
+  anomaly_notes: docs/anomaly-handling.md
+  dashboard: https://santiagov1998.github.io/financial-data-ingestion-snowflake/
+
+last_updated: 2026-08-11

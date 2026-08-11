@@ -27,87 +27,46 @@ Operating instructions — how to connect, how to run, conventions — live in
 
 | Phase | State | PR |
 |---|---|---|
-| Setup — warehouse, database, medallion schemas | ✅ Done | #1 |
-| Bronze — stage, file formats, raw DDL, load | ✅ Done | #1 |
-| Silver — XML/JSON parsing | 🔜 Next | — |
-| Silver — deduplication and DQ quarantine | ⬜ Pending | — |
-| Gold — canonical model and transformations | ⬜ Pending | — |
-| Results dashboard | ⬜ Pending | — |
-| Documentation and anomaly notes | ⬜ Pending | — |
+| Setup — role, warehouse, database, medallion schemas | ✅ Done | #1 |
+| Bronze — stage, file formats, raw DDL, load, validation | ✅ Done | #1 |
+| CI — SQL linting and source-integrity gates | ✅ Done | #2, #7 |
+| Silver — XML/JSON parsing and typing | ✅ Done | #8 |
+| Silver — quality rules, ground truth, deduplication | ✅ Done | #8 |
+| Gold — canonical model and transformations | ✅ Done | #8 |
+| Results dashboard | ✅ Done | #8 |
+| Documentation and anomaly notes | ✅ Done | #8 |
 
 ### What exists in Snowflake right now
 
 Database `financial_ingestion`, warehouse `wh_ingestion` (XSMALL, 60s
 auto-suspend), schemas `bronze` / `silver` / `gold`, all owned by the
-`ingestion_engineer` role. `ACCOUNTADMIN` is used only to create the role and
-warehouse in `00_setup`, never to own pipeline objects.
+`ingestion_engineer` role. `ACCOUNTADMIN` only creates the role and warehouse in
+`00_setup`; it never owns pipeline objects.
 
-`sql/01_bronze/05_validate_bronze.sql` asserts 14 load invariants and raises on
-failure. All 14 pass.
+| Layer | State |
+|---|---|
+| **Bronze** | 1701 text lines from the 8 unparseable files + 148 master rows. 14 invariants asserted, all passing. |
+| **Silver** | 57 transactions parsed → 46 clean; 58 line items → 39 clean; 131 quality findings quarantined. |
+| **Gold** | 46 transactions, 39 line items, 43 customers, 37 products, 40 orders, 57 payments. 24 invariants asserted, all passing. |
 
-Bronze is loaded and verified:
+**Rule coverage against the provider's own labels: 49/49.** Every ground-truth
+label classified — 39 mapped to a rule, 7 schema variation by design, 0
+unclassified, reconciling to the 46 transactions.
 
-| Table | Rows | Content |
-|---|---|---|
-| `raw_text_lines` | 1701 | Verbatim lines from the 7 XML fragments + the JSON |
-| `raw_client_a_customers` | 23 | |
-| `raw_client_a_orders` | 21 | |
-| `raw_client_a_products` | 22 | |
-| `raw_client_b_customers` | 22 | |
-| `raw_client_b_orders` | 21 | |
-| `raw_client_b_products` | 18 | |
-| `raw_client_b_payments` | 21 | |
+### Figures worth knowing
 
-Silver and gold are empty.
+`amount_variance` — the gap between a stated payment and the sum of its own
+lines — is the reconciliation the model exists to expose. It is measured and
+never corrected:
 
-### Validated in Snowflake, not yet committed
+| Client | Transactions | Payment ≠ lines | Total absolute variance |
+|---|---|---|---|
+| Client A | 37 | 16 | 872.18 |
+| Client B | 9 | 2 | 203.93 |
 
-Both parsing strategies were proven against the real data before being written
-into silver. The queries are in the exploration below and produce:
-
-- **ClientA XML** — 45 859 characters reassembled from 7 fragments,
-  `PARSE_XML` succeeds, **46 `<Transaction>` elements** (40 distinct ids,
-  so 6 duplicates)
-- **ClientB JSON** — 5 798 characters after comment removal,
-  `TRY_PARSE_JSON` succeeds, **11 transactions** (10 distinct ids,
-  so 1 duplicate)
-
-Reassembling the XML:
-
-```sql
-WITH fragment_lines AS (
-    SELECT REGEXP_SUBSTR(source_file, 'ClientA_Transactions_(\\d+)', 1, 1, 'e', 1)::NUMBER AS fragment_seq,
-           file_row_number, line_text
-    FROM   bronze.raw_text_lines
-    WHERE  source_file ILIKE '%ClientA_Transactions%'
-      AND  NOT REGEXP_LIKE(line_text, '^\\s*-{3,}.*OF FILE.*$')   -- exporter banners
-      AND  NOT REGEXP_LIKE(TRIM(line_text), '^</?SalesData.*>$')  -- unbalanced original roots
-),
-document AS (
-    SELECT PARSE_XML('<SalesData>' ||
-             LISTAGG(line_text, '\n') WITHIN GROUP (ORDER BY fragment_seq, file_row_number) ||
-           '</SalesData>') AS doc
-    FROM fragment_lines
-)
-SELECT f.value
-FROM   document, LATERAL FLATTEN(INPUT => doc:"$") f
-WHERE  f.value:"@"::VARCHAR = 'Transaction';   -- excludes comment nodes
-```
-
-Cleaning the JSON:
-
-```sql
-WITH cleaned_lines AS (
-    SELECT file_row_number,
-           -- (^|[^:]) guard keeps "https://..." intact
-           REGEXP_REPLACE(line_text, '(^|[^:])//.*$', '\\1') AS line_text
-    FROM   bronze.raw_text_lines
-    WHERE  source_file ILIKE '%transactions.json'
-      AND  NOT REGEXP_LIKE(line_text, '^\\s*-{3,}.*OF FILE.*$')
-)
-SELECT TRY_PARSE_JSON(LISTAGG(line_text, '\n') WITHIN GROUP (ORDER BY file_row_number))
-FROM cleaned_lines;
-```
+An earlier version of these figures (9 / 694.76) was wrong: line items leaked
+between copies of a duplicated transaction, inventing variance. See the traps
+below.
 
 ---
 
@@ -128,6 +87,20 @@ FROM cleaned_lines;
 5. **`COPY INTO` will not reload a file it has already loaded** (64-day load
    metadata). It reports success and loads zero rows. `FORCE = TRUE` overrides
    it — but `FORCE` alone is not idempotent, it appends. Pair it with `TRUNCATE`.
+6. **A repeated element with exactly one occurrence is not an array.** For 44 of
+   46 transactions `Items:"$"` is a bare element, so `FLATTEN` iterates its
+   *children* and yields **4 line items out of 48**, silently. `TO_ARRAY`
+   normalises both shapes; `OUTER => TRUE` keeps transactions with no items.
+7. **Deduplication must be position-aware end to end.** Joining line items on
+   `transaction_id` alone let lines from a *discarded* copy attach to the
+   surviving one — TXN-1001 gained a phantom 91.00 variance that way. The same
+   applies in reverse: a REJECT matched on id alone drops every copy, clean ones
+   included. Carry `document_position` through both.
+8. **A derived key must resolve, not just compute.** `order_key` was
+   `MD5(...order_id)` regardless of whether the order existed, so 19
+   transactions carried foreign keys pointing at rows that were never created —
+   invisible because no validation checked. Resolve through the dimension and
+   leave NULL when absent.
 
 ---
 
@@ -153,4 +126,4 @@ The re-delivery exception is therefore enforced by discipline, not by GitHub.
   Claims about data are cheap to check and expensive to get wrong.
 - Documentation is updated in the same PR as the code it describes.
 
-**Last updated**: 2026-08-10 · after PR #7, eighth review round
+**Last updated**: 2026-08-11 · after PR #8 (silver, gold, dashboard, docs)
