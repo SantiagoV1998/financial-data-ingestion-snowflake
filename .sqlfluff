@@ -42,17 +42,16 @@ max_line_length = 110
 #         by the engine: pure noise.
 #   AM04  unknown column count from SELECT * — every use is a deliberate
 #         passthrough of a stage or a view.
-#   AM06  GROUP BY / ORDER BY reference consistency — has no satisfiable answer
-#         in the validation queries, which are UNION ALL chains ordered by an
-#         alias that only the first SELECT defines (ORDER BY status, where
-#         status is IFF(actual = expected, ...)). Ordering by name is rejected
-#         because the later branches have no such name; ordering by position is
-#         rejected because the SELECT lists names. The rule was applied by hand
-#         everywhere it does have an answer — every positional GROUP BY in the
-#         transformation scripts was rewritten to name its columns, since
-#         positional grouping silently follows a reordered SELECT to a different
-#         result.
-exclude_rules = LT01, LT02, LT08, LT09, LT14, CP02, RF04, AL03, AM04, AM06
+#
+# AM06 (GROUP BY / ORDER BY consistency) is NOT excluded here. It has no
+# satisfiable form in exactly one place — the ORDER BY of the canonical
+# validation report — and that line carries a `-- noqa: AM06` explaining why.
+# Excluding it repo-wide to cover that one line would disarm it everywhere else.
+# What it catches — verified by probe, not assumed — is a GROUP BY or ORDER BY
+# MIXING positional and named references (GROUP BY 1, tier_raw): reorder the
+# SELECT and the 1 moves while the name does not, silently regrouping the
+# result. Pure positional grouping does not trigger it.
+exclude_rules = LT01, LT02, LT08, LT09, LT14, CP02, RF04, AL03, AM04
 
 [sqlfluff:indentation]
 tab_space_size = 4

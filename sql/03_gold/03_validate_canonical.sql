@@ -207,7 +207,15 @@ SELECT 'return_lines_retained',
 SELECT check_name, expected, actual,
        IFF(actual = expected, 'PASS', 'FAIL') AS status
 FROM   v_canonical_validation
-ORDER  BY status, check_name;
+-- AM06 has no satisfiable form on the next line: status is an alias this SELECT
+-- defines over a view of UNION ALL branches, and ordering by position is
+-- rejected because the SELECT names its columns. Silenced on this line only —
+-- excluding the rule repo-wide would disarm it everywhere else, and what it
+-- catches there is worth keeping: a GROUP BY or ORDER BY that MIXES positional
+-- and named references (GROUP BY 1, tier_raw), where reordering the SELECT
+-- moves the 1 and leaves the name, silently regrouping the result. Verified by
+-- probe: pure positional does not fire, mixed does.
+ORDER  BY status, check_name;  -- noqa: AM06
 
 EXECUTE IMMEDIATE $$
 DECLARE
