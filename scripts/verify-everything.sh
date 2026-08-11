@@ -139,7 +139,7 @@ expect "tiers ranked without keeping the original" "0" \
 # every REJECT row in quarantine compares two different populations — it passes
 # today only because no discarded copy happens to carry a rejected line.
 expect "rejected_line_count vs distinct rejected lines" \
-       "$(qv "SELECT COUNT(DISTINCT q.natural_key||'|'||q.document_position||'|'||q.line_number)
+       "$(qv "SELECT COUNT(DISTINCT q.source_system||'|'||q.natural_key||'|'||q.document_position||'|'||q.line_number)
               FROM   silver.dq_quarantine AS q
               WHERE  q.entity = 'transaction_item' AND q.severity = 'REJECT'
                 AND  EXISTS (SELECT 1 FROM silver.transactions_clean AS t
@@ -165,6 +165,13 @@ check_doc knowledge-base/README.md "$cov/$cov"       "$cov/$cov coverage"
 # did not read — which is where a stale invariant count survived.
 check_doc docs/anomaly-handling.md "to $inv"         "$inv invariants"
 check_doc docs/anomaly-handling.md "$findings total" "$findings findings"
+# The non-comparable count went stale across three documents: nothing read it
+# back from the warehouse, so a rule moving from REJECT to WARN changed the
+# number everywhere except in the prose describing it.
+noncomp=$(qv "SELECT COUNT(*) FROM gold.fact_transaction WHERE variance_is_comparable = FALSE")
+check_doc docs/anomaly-handling.md   "\\*\\*$noncomp transactions whose variance" "$noncomp not comparable"
+check_doc docs/anomaly-handling.md   "$noncomp further transactions"                "$noncomp not comparable (history table)"
+check_doc knowledge-base/README.md   "Plus $noncomp transactions"                   "$noncomp not comparable"
 # The published variance must be the warehouse's current value, and any other
 # figure may appear ONLY inside the history table that explains it. The allowed
 # list below holds figures used to ILLUSTRATE a specific case in the prose —
