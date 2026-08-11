@@ -202,7 +202,34 @@ UNION ALL
 -- Negative quantities survive as flagged return lines rather than being dropped.
 SELECT 'return_lines_retained',
        (SELECT COUNT(*) FROM silver.transaction_items_clean WHERE quantity < 0),
-       (SELECT COUNT(*) FROM fact_order_item WHERE is_return_line = TRUE);
+       (SELECT COUNT(*) FROM fact_order_item WHERE is_return_line = TRUE)
+UNION ALL
+-- A transaction whose lines span several currencies must never be reported as
+-- having a comparable variance: gross_line_amount would be a sum across units.
+-- Zero in this delivery because every line is USD, which is exactly why the
+-- check has to exist rather than the property be assumed.
+SELECT 'no_comparable_variance_across_currencies',
+       0,
+       (SELECT COUNT(*)
+        FROM   fact_transaction AS t
+        WHERE  t.variance_is_comparable = TRUE
+          AND  (SELECT COUNT(DISTINCT i.currency)
+                FROM   fact_order_item AS i
+                WHERE  i.transaction_key = t.transaction_key) > 1)
+UNION ALL
+-- Master rows leave the pipeline only through a recorded finding. Silver's
+-- reconciliation raises on mismatch; this restates it as a canonical invariant
+-- so the gold gate cannot pass while master data was lost upstream.
+SELECT 'master_rows_discarded_without_record',
+       0,
+       (SELECT COUNT(*) FROM silver.v_master_reconciliation
+        WHERE discarded_actual <> discarded_and_recorded)
+UNION ALL
+-- Coverage is published over one denominator. If master labels stop being
+-- evaluated they become MISSED here rather than vanishing from the total.
+SELECT 'every_master_label_detected',
+       (SELECT COUNT(*) FROM silver.v_master_rule_coverage),
+       (SELECT COUNT(*) FROM silver.v_master_rule_coverage WHERE outcome = 'DETECTED');
 
 SELECT check_name, expected, actual,
        IFF(actual = expected, 'PASS', 'FAIL') AS status

@@ -191,6 +191,13 @@ CREATE OR REPLACE TABLE fact_payment (
     status              VARCHAR,           -- NULL for Client A: not delivered
     status_source       VARCHAR,           -- how status was obtained, or why absent
     is_refund           BOOLEAN,           -- negative amount, flagged not dropped
+    -- TRUE when the payment's order carries more than one transaction, so which
+    -- transaction it belongs to is this pipeline's choice rather than the
+    -- source's statement. Every other ambiguity in this model is flagged —
+    -- payment_id_is_surrogate, status_source, variance_is_comparable — and this
+    -- one was silent. Two Client A orders already carry two transactions each;
+    -- Client B has none today, which is what makes it worth recording now.
+    transaction_attribution_is_arbitrary BOOLEAN,
     loaded_at           TIMESTAMP_NTZ NOT NULL DEFAULT SYSDATE(),
     CONSTRAINT pk_fact_payment PRIMARY KEY (payment_key)
 );

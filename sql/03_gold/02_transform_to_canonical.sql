@@ -202,7 +202,14 @@ INSERT INTO fact_transaction
 WITH li AS (SELECT source_system, transaction_key,
                   COUNT(*)                  AS line_count,
                   SUM(line_amount)          AS gross_line_amount,
-                  MAX(currency)             AS currency
+                  MAX(currency)             AS currency,
+                  -- SUM across currencies is meaningless, and MAX(currency)
+                  -- would report one of them as if it covered the total. Every
+                  -- line in this delivery is USD, so this is 1 throughout — but
+                  -- "true today" is what MISSING_UNIT_PRICE was too. Counted
+                  -- rather than assumed, so a mixed-currency transaction makes
+                  -- its variance non-comparable instead of quietly wrong.
+                  COUNT(DISTINCT currency)  AS currency_count
            FROM   fact_order_item
            GROUP  BY source_system, transaction_key
 ),
@@ -244,8 +251,13 @@ SELECT
     -- readable 19.99 line and no payment amount at all, so the variance is
     -- unknown rather than zero, and the dashboard counted it as "payment
     -- matches its lines".
+    -- A third condition: the lines must share one currency. Summing USD and EUR
+    -- into a single gross_line_amount and comparing it against a payment in a
+    -- third currency produces a number with no meaning, and this flag exists to
+    -- mark exactly the variances that cannot be trusted.
     (COALESCE(rj.rejected_lines, 0) = 0
-     AND t.payment_amount IS NOT NULL)                               AS variance_is_comparable,
+     AND t.payment_amount IS NOT NULL
+     AND COALESCE(li.currency_count, 1) <= 1)                        AS variance_is_comparable,
     COALESCE(t.payment_currency, li.currency)                        AS currency,
     EXISTS(SELECT 1 FROM silver.dq_quarantine AS q
             -- Scoped to THIS copy. Without document_position a warning raised
@@ -292,8 +304,13 @@ TRUNCATE TABLE fact_payment;
 -- Client B: delivered payments
 INSERT INTO fact_payment
     (payment_key, source_system, payment_id, payment_id_is_surrogate, order_key,
-     transaction_key, payment_method, amount, currency, status, status_source, is_refund)
-WITH t AS (SELECT source_system, order_id, MIN(transaction_id) AS transaction_id
+     transaction_key, payment_method, amount, currency, status, status_source, is_refund,
+     transaction_attribution_is_arbitrary)
+WITH t AS (SELECT source_system, order_id, MIN(transaction_id) AS transaction_id,
+                  -- MIN picks one id to avoid the fan-out described below, but
+                  -- when the order carries several it is a guess. Recorded
+                  -- rather than assumed away.
+                  COUNT(DISTINCT transaction_id) > 1 AS attribution_is_arbitrary
            FROM   silver.transactions_clean
            GROUP  BY source_system, order_id
 )
@@ -309,7 +326,8 @@ SELECT
     p.currency,
     p.status,
     'delivered by source',
-    IFF(p.amount IS NULL, NULL, p.amount < 0)
+    IFF(p.amount IS NULL, NULL, p.amount < 0),
+    COALESCE(t.attribution_is_arbitrary, FALSE)
 FROM      silver.payments_clean AS p
 -- One row per order, not per transaction: a LEFT JOIN straight to
 -- transactions_clean fans out when an order carries several transaction ids,
@@ -327,7 +345,8 @@ LEFT JOIN fact_order AS o
 -- Client A: payment embedded in the transaction
 INSERT INTO fact_payment
     (payment_key, source_system, payment_id, payment_id_is_surrogate, order_key,
-     transaction_key, payment_method, amount, currency, status, status_source, is_refund)
+     transaction_key, payment_method, amount, currency, status, status_source, is_refund,
+     transaction_attribution_is_arbitrary)
 SELECT
     MD5(t.source_system || '|PAY|' || t.transaction_id),
     t.source_system,
@@ -341,7 +360,11 @@ SELECT
     NULL                                             AS status,
     'not delivered: payment is embedded in the transaction and carries no status field'
                                                      AS status_source,
-    IFF(t.payment_amount IS NULL, NULL, t.payment_amount < 0)
+    IFF(t.payment_amount IS NULL, NULL, t.payment_amount < 0),
+    -- Never arbitrary for Client A: the payment is delivered INSIDE the
+    -- transaction, so the attribution is the source's own, not a choice made
+    -- here. FALSE rather than NULL — "not ambiguous" is a fact, not an unknown.
+    FALSE
 FROM      silver.transactions_clean AS t
 LEFT JOIN fact_order AS o
        ON t.source_system = o.source_system
