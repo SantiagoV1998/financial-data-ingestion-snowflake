@@ -59,13 +59,17 @@ SELECT source_system, document_position, transaction_id, order_id,
        -- Client A splits the name; Client B delivers one field. Composed here
        -- only so the "missing customer name" rule can be written once.
        NULLIF(TRIM(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')), '') AS customer_name,
-       email, payment_method, payment_amount, payment_amount_raw, raw_payload
+       email, payment_method, payment_amount, payment_amount_raw,
+       payment_currency, raw_payload
 FROM   stg_client_a_transactions
 UNION ALL
 SELECT source_system, document_position, transaction_id, order_id,
        order_date, order_date_raw, customer_id,
        customer_name,
-       email, payment_method, payment_amount, payment_amount_raw, raw_payload
+       email, payment_method, payment_amount, payment_amount_raw,
+       -- Client B's JSON payment node carries no currency at all; Client A has
+       -- it as an XML attribute. Gold resolves this with a coalesce cascade.
+       payment_currency, raw_payload
 FROM   stg_client_b_transactions;
 
 CREATE OR REPLACE VIEW v_all_transaction_items AS
