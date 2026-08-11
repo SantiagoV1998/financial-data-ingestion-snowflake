@@ -256,24 +256,79 @@ defensible contract.
 
 ---
 
-## D16 · Branch protection is part of the integrity control
+## D16 · Branch protection, and the guarantee it does not give
 
-**Decision**: `main` is protected — direct pushes and force-pushes rejected,
-both CI checks required, `enforce_admins` on. The repository is public, which is
-what makes protection available (GitHub gates it behind public or Pro).
+**Decision**: `main` is protected — force-pushes and deletions rejected, both CI
+checks required, `enforce_admins` on. `required_pull_request_reviews` is set with
+zero required approvals, which sounds like "a PR is required to merge" and is
+not: with zero approvals GitHub does not block a direct push, which is what the
+verification below found. The repository is public, which is what makes
+protection available at all (GitHub gates it behind public or Pro).
 
-**Why**: the source-integrity gate allows one exception — a genuine re-delivery,
-recognised by the pinned digest changing alongside the data. That exception is
-justified by "it lands in a diff a reviewer reads". On a direct push to `main`
-there is no reviewer, and anyone tampering has to update the pin anyway to get
-past step 0 — so the exception would concede itself.
+**What this actually guarantees**: no code reaches `main` without passing CI, the
+history cannot be rewritten, and the branch cannot be deleted. That is worth
+having and it is enforced.
 
-No amount of workflow logic fixes that; it is a property of who can write to the
-branch. Three earlier attempts tried to solve it inside the workflow (a label, a
-documented convention, a workflow-diff check) and each introduced its own defect.
+**What it does not guarantee, despite an earlier version of this entry claiming
+otherwise**: that every change was read by a reviewer. This repository has one
+collaborator, and no configuration produces that property with one person:
 
-**Verified**: a direct push to `main` is rejected with
-`GH006: Protected branch update failed ... 2 of 2 required status checks are
-expected`.
+| Setting | Result |
+|---|---|
+| 1 approval required | Nobody can approve, so `main` freezes — nothing can merge |
+| 0 approvals required | Does not block a direct push, verified below |
 
-**Last updated**: 2026-08-10 · after PR #1 (bronze), sixth review round
+**Verified, and it failed**: with `required_pull_request_reviews` present at 0
+approvals and `enforce_admins: true`, `git push origin <green-PR-head>:main` was
+**accepted** and merged PR #2 without going through the pull request. A commit
+that already carries green check runs satisfies the required contexts, so the
+protection has nothing left to object to. An earlier note in this file recorded
+`GH006: Protected branch update failed` as proof the hole was closed — that test
+used a *fresh* commit with no check runs, which is a different case, and
+generalising from it was wrong.
+
+**Consequence for the re-delivery exception** (step 3 of the integrity gate; it lives in `ci.yml` and `CLAUDE.md`, not in a D-entry):
+its stated justification was "the exception lands in a diff a reviewer reads".
+For a solo repository that is a convention, not a control. The exception is still
+narrow — it requires the pinned digest to change in the same commit — but it is
+honest to say it is enforced by discipline rather than by GitHub.
+
+**How to make it a real control**: add a second collaborator and require one
+approving review. That is a team property, not a configuration trick, and it is
+the only thing that closes it.
+
+---
+
+## D17 · Secret detection is GitHub's, not ours
+
+**Decision**: GitHub secret scanning with push protection is enabled on the
+repository. Neither `.gitignore` nor `scripts/check-data-integrity.sh` attempts
+to recognise a credential by filename.
+
+**Verified**, not assumed — the failure D16 was rewritten for:
+
+```
+$ gh api repos/SantiagoV1998/financial-data-ingestion-snowflake \
+    --jq '.security_and_analysis'
+{"secret_scanning": "enabled", "secret_scanning_push_protection": "enabled"}
+```
+
+**Why we stopped doing it ourselves**: eight review rounds went into a filename
+guard, and both failure directions are silent. Too broad and a delivery vanishes
+— `*token*` swallowed `PaymentTokens.csv` and everything under `data/tokens/`,
+with `git add` skipping them wordlessly and all five gates green. Too narrow and
+`API_KEY.csv`, `AUTH_TOKEN.json` and `PRIVATE_KEY.txt` sailed through a guard
+whose comment promised full coverage. There is always another name; the approach
+has no floor.
+
+**What this control actually covers**: credential *material*, recognised by
+content — provider tokens, AWS keys, RSA private keys — with push protection
+rejecting the push before it lands.
+
+**What it does not**: a plain password sitting in a JSON field matches no known
+provider pattern and will not be caught. Nor does any CI step fail if scanning is
+later switched off; that is a repository setting, outside the workflow's reach.
+Both are stated rather than papered over — the value of this entry is knowing the
+edge, not believing the control is total.
+
+**Last updated**: 2026-08-10 · after PR #7, fourteenth review round

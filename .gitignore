@@ -1,12 +1,25 @@
-# Credentials — never commit
+# Credentials — never commit.
+#
+# These are the ordinary hygiene rules. Detection of secrets by CONTENT is
+# handled by GitHub secret scanning with push protection, enabled on this
+# repository: it recognises real credential material (AWS keys, RSA private
+# keys, provider tokens) and blocks the push before it lands.
+#
+# That division matters. An earlier version of this file tried to identify
+# secrets by guessing at filenames, and it could not be made to work: too broad
+# and it swallowed deliveries whole (a bundle under data/tokens/ vanished, with
+# every check green), too narrow and API_KEY.csv sailed through. Filename
+# guessing has no floor — there is always another name.
 *.p8
 *.pem
 *.key
-rsa_key*
-config.toml
+*.env
 .env
 .env.*
+config.toml
+connections.toml
 credentials*
+rsa_key*
 
 # Snowflake CLI local state
 .snowflake/
@@ -23,3 +36,30 @@ Thumbs.db
 # Temporary exports
 tmp/
 *.tmp
+
+# ── data/ ──────────────────────────────────────────────────────────────────────
+#
+# The delivered source files must survive `git add`. Both the manifest and the
+# coverage check derive from the git index, so a delivery that git silently
+# skips is invisible to every integrity gate: it never reaches Snowflake while
+# CI reports green and the documentation asserts the delivery is complete.
+#
+# The rules above are ordinary and would swallow plausible deliveries —
+# Orders.tmp, config.toml, a stray .DS_Store beside the payload. These
+# re-inclusions cover the five formats actually delivered, at any depth.
+#
+# scripts/check-data-integrity.sh asserts this holds, including for paths inside
+# directories the rules above exclude, and fails the build if a delivery would be
+# invisible.
+# The directory re-inclusion comes FIRST and is load-bearing. Git does not
+# descend into an excluded directory, so `!data/**/*.csv` alone cannot rescue a
+# file inside one: a delivery under data/client_c/tmp/ or data/client_c/tokens/
+# stayed invisible because `tmp/` and `credentials*` match directory names too.
+# Re-including the directories lets git look inside; the extension rules then
+# decide file by file.
+!data/**/
+!data/**/*.csv
+!data/**/*.CSV
+!data/**/*.xml
+!data/**/*.json
+!data/**/*.txt

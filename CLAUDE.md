@@ -32,8 +32,8 @@ snow sql -c nuaav -f sql/01_bronze/04_load_bronze.sql
 
 Connection `nuaav` is defined in `~/.snowflake/config.toml`, authenticating with
 an RSA key pair at `~/.snowflake/keys/` (Snowflake blocks password-only
-programmatic sign-in). Neither the config nor the key is in this repo, and
-`.gitignore` is set up to keep it that way — never commit either.
+programmatic sign-in). Neither the config nor the key lives in this repo, and
+`.gitignore` keeps it that way.
 
 Target: database `financial_ingestion`, warehouse `wh_ingestion`, schemas
 `bronze` / `silver` / `gold`, role **`ingestion_engineer`**.
@@ -67,48 +67,40 @@ that loads everything.
 ```bash
 sqlfluff lint sql/                      # dialect snowflake, config in .sqlfluff
 shasum -a 256 -c data/CHECKSUMS.sha256  # bytes match the manifest
-diff <(git -c core.quotePath=false ls-files data | grep -vx data/CHECKSUMS.sha256 | sort) \
-     <(sed 's/^[0-9a-f]\{64\}  //' data/CHECKSUMS.sha256 | sort)  # manifest covers every file
+diff <(git -c core.quotePath=false ls-files data | grep -vx 'data/CHECKSUMS\.sha256' | sort) \
+     <(sed 's/^[0-9a-f]\{64\}  //' data/CHECKSUMS.sha256 | sort)  # manifest coverage
+./scripts/check-data-integrity.sh       # data/ invariants (prints its own count)
 ```
 
-Both run in CI on every PR. The checksum gate enforces the project's central
-claim — that the source files are ingested byte-identical and every repair
-happens in SQL. Without it, someone could quietly "fix" a file and the pipeline
-would pass while the exercise had been sidestepped.
+CI runs the same five steps: the manifest's pinned digest (0), the checksums
+(1), manifest coverage (2), the `data/` invariants (2b), and a diff of the
+source files against the base (3). Everything except step 3 runs locally —
+step 3 is the only one needing the base ref. `check-data-integrity.sh` is
+literally the script CI invokes, so it cannot pass here and fail there.
 
-CI adds a third step the local commands cannot replicate: it diffs `data/`
-against the base branch. The manifest ships inside the PR, so on its own it
-proves nothing — a PR that edits a source file *and* regenerates the manifest
-satisfies `shasum -c` perfectly. Comparing against the base is what makes the
-claim enforceable, and it means **regenerating the manifest will not get a
-`data/` change past CI**. That is deliberate: in this project the source files
-are never supposed to change.
+Run the local four before pushing. Step 2b in particular catches something no CI
+step can: a delivered file sitting on disk that `git add` would skip. It is
+absent from the index, therefore absent from the manifest, the coverage diff and
+the base comparison alike — and absent from a fresh CI checkout too, so CI is
+structurally blind to it.
 
-There is no opt-out flag. The exception is the workflow diff itself, and it is
-self-enforcing: changing a source file forces a new manifest, a new manifest has
-a new digest, and the digest is pinned as `EXPECTED` in
-`.github/workflows/ci.yml`. So a re-delivery cannot avoid touching the workflow —
-and step 3 keys on exactly that, allowing a `data/` change only when the workflow
-changed with it. The exception lands where a reviewer already has to look.
+**What these gates guarantee.** That the delivered files are ingested exactly as
+received: unchanged bytes, none lost. That is the exercise's central claim, and
+without enforcement someone could quietly "fix" a source file — close the XML
+root, strip the banner — and the pipeline would pass while the exercise had been
+sidestepped.
 
-To land a genuine re-delivery, in one PR: replace the files, **`git add data`**,
-regenerate the manifest, and update `EXPECTED`. The `git add` is not optional —
-the regeneration command reads the *index*, not the working tree, so a newly
-delivered file that has not been staged is omitted from the manifest and CI then
-fails on a manifest that looks corrupt.
+**What they do not.** They do not identify secrets. `.gitignore` carries ordinary
+hygiene rules, and neither it nor the script tries to recognise a credential by
+filename — that approach was removed after it repeatedly either swallowed
+deliveries or missed obvious names; the script header explains why it cannot
+work. Secret detection is GitHub secret scanning with push protection, whose
+scope and limits are recorded in `knowledge-base/DECISIONS.md` D17.
 
-```bash
-git add data
-git ls-files -z data | grep -zvx 'data/CHECKSUMS\.sha256' | sort -z \
-  | xargs -0 shasum -a 256 > data/CHECKSUMS.sha256
-```
-
-Then update `EXPECTED` in `.github/workflows/ci.yml` to the new digest of the
-manifest — CI pins it, so a manifest change that skips this step fails.
-
-`.sqlfluff` disables a number of rules, each with a written reason. Keep it that
-way: a linter silenced without reasons is worse than no linter, because a green
-check then means nothing.
+Coverage is bounded and worth knowing precisely: the re-inclusions under `data/`
+name the five delivered formats, so a delivery arriving as `Payments.tmp` or
+`config.toml` would still be skipped by `git add`. Step 2b's working-tree check
+catches exactly that, but only when run locally before committing.
 
 ## Conventions
 

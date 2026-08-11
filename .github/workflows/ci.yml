@@ -57,13 +57,15 @@ jobs:
 
       # The central claim of this project is that the source files are ingested
       # byte-identical to delivery and every repair happens in SQL inside
-      # Snowflake. These three steps make that claim enforceable rather than
+      # Snowflake. These steps make that claim enforceable rather than
       # asserted, and they are deliberately layered — each covers a way the
       # others can be defeated.
       #
-      #   1. checksums    the 15 files match the manifest
-      #   2. coverage     the manifest lists exactly the files present
-      #   3. base diff    the files themselves are unchanged since the base
+      #   0. pinned digest  the manifest itself is what this workflow expects
+      #   1. checksums      the 15 files match the manifest
+      #   2. coverage       the manifest lists exactly the files present
+      #   2b. invariants    no delivered file can be silently lost
+      #   3. base diff      the files themselves are unchanged since the base
       #
       # Steps 1 and 2 cannot stand alone: the manifest ships inside the change,
       # so editing a source file and regenerating the manifest satisfies both.
@@ -111,13 +113,21 @@ jobs:
       # file merely containing that substring would be dropped from both sides.
       - name: 2 · Manifest covers exactly the files present
         run: |
-          diff <(git -c core.quotePath=false ls-files data | grep -vx 'data/CHECKSUMS.sha256' | sort) \
+          diff <(git -c core.quotePath=false ls-files data | grep -vx 'data/CHECKSUMS\.sha256' | sort) \
                <(sed 's/^[0-9a-f]\{64\}  //' data/CHECKSUMS.sha256 | sort) \
             || { echo "::error::data/ and CHECKSUMS.sha256 list different files"; exit 1; }
 
+      # Delegated to a script so CI and the local pre-flight run the same
+      # checks. Duplicating them in YAML is how they drifted apart before: the
+      # documented local command and the CI step tested different things.
+      - name: 2b · data/ invariants
+        run: ./scripts/check-data-integrity.sh
+
       # Runs on pushes too. Restricting this to pull_request would leave a
-      # direct push to main verified only by steps 1 and 2 — which is precisely
-      # the hole this step exists to close, relocated rather than fixed.
+      # direct push to main verified only by steps 0, 1, 2 and 2b — all of which
+      # compare the change against itself, since the manifest ships inside it.
+      # This is the only step that compares against something the change cannot
+      # rewrite.
       # The exception is the workflow diff itself, and it is self-enforcing.
       #
       # Changing a source file requires regenerating the manifest, which changes
@@ -137,22 +147,6 @@ jobs:
       # could not turn CI green, and an admin merge reproduced the same red
       # main. Reading the workflow diff here is what makes the documented
       # remedy true.
-      # Steps 1 and 2 both derive from the git index, and so does the manifest.
-      # A delivered file that `git add` silently skips therefore appears on
-      # neither side and no gate notices — while CLAUDE.md keeps asserting the
-      # delivery is committed byte-identical. The .gitignore patterns are not
-      # exotic: credentials*, *.key, *.tmp, config.toml and .env.* all match
-      # plausible delivery names, verified with git check-ignore.
-      - name: 2b · No delivered file is hidden by .gitignore
-        run: |
-          hidden=$(git ls-files --others --ignored --exclude-standard -- data/)
-          if [ -n "$hidden" ]; then
-            echo "::error::Files under data/ are present but ignored by .gitignore, so they are invisible to every other check:"
-            echo "$hidden"
-            exit 1
-          fi
-          echo "No ignored files under data/."
-
       - name: 3 · Source files unchanged relative to the base
         env:
           # Passed through env rather than interpolated into the script. A branch
@@ -198,13 +192,15 @@ jobs:
 
           # data/ changed. Allowed only when the pinned digest changed with it.
           #
-          # This exception is safe only because main is a protected branch:
-          # direct pushes and force-pushes are rejected (GH006) and both checks
-          # are required, with enforce_admins on. Without that, the exception
-          # would concede itself — a tamperer has to update EXPECTED anyway to
-          # satisfy step 0, and on a direct push there is no reviewer for the
-          # diff this exception assumes will be read. The protection is part of
-          # the control, not an optional extra; see knowledge-base/DECISIONS.md
+          # Branch protection makes this narrower but does not fully close it.
+          # Force-pushes and deletions are rejected and both checks are required,
+          # so nothing reaches main without passing CI. It does not guarantee a
+          # reviewer saw the diff: with a single collaborator, requiring an
+          # approval would freeze the branch, and requiring none does not block a
+          # direct push — verified, a commit already carrying green checks was
+          # accepted straight onto main. The exception is kept deliberately
+          # narrow (the pinned digest must change in the same commit) but it is
+          # enforced by discipline, not by GitHub. See knowledge-base/DECISIONS.md
           # D16.
           #
           # Keyed on the EXPECTED line specifically, not on "ci.yml changed at
@@ -212,8 +208,13 @@ jobs:
           # bumping the SQLFluff version in the same PR would have waved a data
           # change through — and it would have become a silent bypass if
           # EXPECTED were ever moved to a repo variable or a separate file.
-          if git diff -U0 "$base" HEAD -- .github/workflows/ci.yml \
-               | grep -qE "^[+-][[:space:]]*EXPECTED:"; then
+          # Captured into a variable rather than piped into `grep -q`: under
+          # `set -o pipefail`, grep -q exits at the first match and closes the
+          # pipe, so a large diff still being written dies on SIGPIPE (141) and
+          # the whole condition inverts — rejecting a legitimate re-delivery
+          # precisely because EXPECTED did change.
+          workflow_diff=$(git diff -U0 "$base" HEAD -- .github/workflows/ci.yml)
+          if printf '%s' "$workflow_diff" | grep -E "^[+-][[:space:]]*EXPECTED:" >/dev/null; then
             echo "::warning::Source files under data/ changed and the pinned digest was updated with them — treating this as a reviewed re-delivery. The diff below must be checked deliberately."
             git diff --stat "$base" HEAD -- data/ ':(exclude)data/CHECKSUMS.sha256'
             exit 0
