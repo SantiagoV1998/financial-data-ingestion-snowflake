@@ -89,6 +89,34 @@ SELECT 'items_belong_to_surviving_copy', 0,
                             AND t.transaction_id    = i.transaction_id
                             AND t.document_position = i.document_position))
 UNION ALL
+-- fact_payment had only a uniqueness check, which is why its order_key kept
+-- dangling after the same defect was fixed for transactions and line items.
+SELECT 'fact_payment_order_resolves', 0,
+       (SELECT COUNT(*) FROM fact_payment AS p
+        WHERE p.order_key IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM fact_order AS o
+                          WHERE o.order_key = p.order_key))
+UNION ALL
+SELECT 'fact_payment_transaction_resolves', 0,
+       (SELECT COUNT(*) FROM fact_payment AS p
+        WHERE p.transaction_key IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM fact_transaction AS f
+                          WHERE f.transaction_key = p.transaction_key))
+UNION ALL
+-- Deduplication must keep the copy carrying the most lines. Keeping the last
+-- one dropped the only real line of C-TXN-3001 and invented a 149.99 variance.
+-- Excludes transactions whose lines were REJECTed: those legitimately have no
+-- lines in gold, which rejected_line_count records. What this catches is a
+-- transaction that HAD readable lines and lost them to deduplication.
+SELECT 'no_transaction_lost_its_only_lines', 0,
+       (SELECT COUNT(*) FROM fact_transaction AS f
+        WHERE f.line_count = 0
+          AND COALESCE(f.rejected_line_count, 0) = 0
+          AND EXISTS (SELECT 1 FROM silver.v_all_transaction_items AS i
+                      WHERE i.source_system  = f.source_system
+                        AND i.transaction_id = f.transaction_id
+                        AND i.raw_payload IS NOT NULL))
+UNION ALL
 -- A NULL variance excluded the worst reconciliation cases from the figures.
 SELECT 'variance_never_null_when_paid', 0,
        (SELECT COUNT(*) FROM fact_transaction

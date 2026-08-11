@@ -74,6 +74,7 @@ set, and the client decides.
 | `NEGATIVE_QUANTITY` | WARN | 9 | **May be a return line** — flagged, not dropped |
 | `MISSING_DESCRIPTION` | WARN | 1 | Cosmetic; the SKU carries the identity |
 | `ORPHAN_SKU` | WARN | 20 | SKU has no product master record |
+| `MISSING_UNIT_PRICE` | REJECT | 0 | Latent here — a NULL price makes `line_amount` NULL, which `SUM()` skips silently |
 
 Two duplicate rules exist rather than one because they are **different defects**:
 a repeated transaction id is a delivery artefact, while the same order billed
@@ -97,16 +98,16 @@ CUST-A-0033,Julia,Chen,jchen@@example..com,SILVER,Web,true <-- invalid email
 Bronze keeps every line verbatim, so those labels are recoverable — and that turns
 "I wrote some quality rules" into something measurable.
 
-**Result: 49 of 49 expectations detected.**
+**Result: 55 of 55 expectations detected**, across both clients.
 
 Every ground-truth label is classified, and the totals reconcile:
 
 | Bucket | Labels |
 |---|---|
-| Mapped to a rule | 39 |
+| Mapped to a rule | 45 |
 | Schema variation, handled by design | 7 |
 | **Unclassified** | **0** |
-| | **46** = the 46 transactions |
+| | **52** = 46 Client A labels + 6 Client B |
 
 A coverage figure that quietly drops the labels it cannot satisfy is worthless,
 so nothing is left out of the denominator.
@@ -221,8 +222,13 @@ was paid and what its own line items add up to.
 
 | Client | Transactions | Payment ≠ lines | Total absolute variance |
 |---|---|---|---|
-| Client A | 37 | 16 | 872.18 |
-| Client B | 9 | 2 | 203.93 |
+| Client A | 37 | 9 | 694.76 |
+| Client B | 9 | 1 | 53.94 |
+
+Plus **7 transactions whose variance is not comparable**, because lines this
+pipeline rejected were never summed. Those are reported separately rather than
+folded in: where a line was rejected the gap is partly ours, not the source's,
+and mixing the two would overstate how inconsistent the source actually is.
 
 It is **measured and left visible, never corrected**. Correcting it would erase
 the finding — and reconciling a payment against its own lines is precisely what a

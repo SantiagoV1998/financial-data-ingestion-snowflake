@@ -124,6 +124,7 @@ def client_block(code, label, series):
         <div><dt>Payments not matching their own lines</dt>
              <dd>{v.get('WITH_VARIANCE', 0)} of {v.get('TXNS', 0)}</dd></div>
         <div><dt>Total absolute variance</dt><dd>{v.get('TOTAL_ABS_VARIANCE', '0')}</dd></div>
+        <div><dt>Not comparable — lines rejected</dt><dd>{v.get('NOT_COMPARABLE', 0)}</dd></div>
       </dl>
     </article>"""
 
@@ -311,6 +312,11 @@ HTML = f"""<title>Financial Data Ingestion — Pipeline Results</title>
   exists to make possible: the difference between what the source says was paid and what
   its own line items add up to. It is measured and left visible, never corrected —
   correcting it would erase the finding.
+  <br><br>
+  The figure counts only transactions whose every line was readable. Where a line was
+  rejected the gap is partly ours, not the source's, and those are reported separately
+  rather than folded in — otherwise the metric would overstate how inconsistent the
+  source actually is.
 </p>
 <div class="clients">
   {client_block('CLIENT_A', 'Client A — XML + CSV', 'series-1')}

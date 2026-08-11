@@ -120,6 +120,13 @@ CREATE OR REPLACE TABLE fact_transaction (
     gross_line_amount   NUMBER(18,2),      -- SUM(quantity * unit_price)
     payment_amount      NUMBER(18,2),      -- as stated by the source
     amount_variance     NUMBER(18,2),      -- payment minus lines; 0 when they agree
+    -- Lines this pipeline REJECTed and therefore did not sum. Without it,
+    -- amount_variance conflates two different things: a source that disagrees
+    -- with itself, and a source we could not fully read. A transaction whose
+    -- only line was rejected for a missing SKU shows 100% variance — a break the
+    -- source never had.
+    rejected_line_count NUMBER,
+    variance_is_comparable BOOLEAN,        -- FALSE when lines were rejected
     currency            VARCHAR,
     has_quality_warning BOOLEAN,           -- carries at least one WARN finding
     loaded_at           TIMESTAMP_NTZ NOT NULL DEFAULT SYSDATE(),

@@ -305,6 +305,20 @@ SELECT source_system, 'transaction_item', transaction_id, document_position, lin
        'WARN', raw_payload
 FROM v_all_transaction_items WHERE quantity < 0;
 
+-- The parallel of MISSING_QUANTITY, and absent until review pointed it out:
+-- a NULL unit price makes line_amount NULL, which SUM() skips silently — so the
+-- line understates gross_line_amount and inflates amount_variance with nothing
+-- recorded anywhere. Latent in this delivery, where all 48 prices are numeric.
+INSERT INTO dq_quarantine
+    (source_system, entity, natural_key, document_position, line_number,
+     rule_code, rule_detail, severity, raw_payload)
+SELECT source_system, 'transaction_item', transaction_id, document_position, line_number,
+       'MISSING_UNIT_PRICE',
+       'Unit price absent or unparseable: ' || COALESCE(unit_price_raw, '(absent)'),
+       'REJECT', raw_payload
+FROM v_all_transaction_items
+WHERE raw_payload IS NOT NULL AND unit_price IS NULL;
+
 -- A negative unit price has no comparable reading. Prices are not signed.
 INSERT INTO dq_quarantine
     (source_system, entity, natural_key, document_position, line_number,

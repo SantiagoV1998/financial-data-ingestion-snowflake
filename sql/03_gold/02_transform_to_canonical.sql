@@ -172,13 +172,20 @@ TRUNCATE TABLE fact_transaction;
 INSERT INTO fact_transaction
     (transaction_key, source_system, transaction_id, order_key, customer_key,
      transaction_date, line_count, gross_line_amount, payment_amount,
-     amount_variance, currency, has_quality_warning)
+     amount_variance, rejected_line_count, variance_is_comparable,
+     currency, has_quality_warning)
 WITH li AS (SELECT source_system, transaction_key,
                   COUNT(*)                  AS line_count,
                   SUM(line_amount)          AS gross_line_amount,
                   MAX(currency)             AS currency
            FROM   fact_order_item
            GROUP  BY source_system, transaction_key
+),
+rj AS (SELECT source_system, natural_key, document_position,
+                  COUNT(*) AS rejected_lines
+           FROM   silver.dq_quarantine
+           WHERE  entity = 'transaction_item' AND severity = 'REJECT'
+           GROUP  BY source_system, natural_key, document_position
 )
 SELECT
     MD5(t.source_system || '|' || t.transaction_id),
@@ -199,6 +206,11 @@ SELECT
     COALESCE(li.gross_line_amount, 0)                                AS gross_line_amount,
     t.payment_amount,
     ROUND(t.payment_amount - COALESCE(li.gross_line_amount, 0), 2)   AS amount_variance,
+    COALESCE(rj.rejected_lines, 0)                                   AS rejected_line_count,
+    -- The variance only means "the source disagrees with itself" when every
+    -- line was readable. Where lines were rejected the gap is partly ours, and
+    -- reporting the two together would overstate the source's inconsistency.
+    COALESCE(rj.rejected_lines, 0) = 0                               AS variance_is_comparable,
     COALESCE(t.payment_currency, li.currency)                        AS currency,
     EXISTS(SELECT 1 FROM silver.dq_quarantine AS q
             WHERE q.source_system = t.source_system
@@ -212,7 +224,11 @@ LEFT JOIN dim_customer AS c
       AND t.customer_id   = c.customer_id
 LEFT JOIN fact_order AS o
        ON t.source_system = o.source_system
-      AND t.order_id      = o.order_id;
+      AND t.order_id      = o.order_id
+LEFT JOIN rj
+       ON t.source_system     = rj.source_system
+      AND t.transaction_id       = rj.natural_key
+      AND t.document_position = rj.document_position;
 
 /* ---------------------------------------------------------------------------
    fact_payment
@@ -232,12 +248,16 @@ TRUNCATE TABLE fact_payment;
 INSERT INTO fact_payment
     (payment_key, source_system, payment_id, payment_id_is_surrogate, order_key,
      transaction_key, payment_method, amount, currency, status, status_source, is_refund)
+WITH t AS (SELECT source_system, order_id, MIN(transaction_id) AS transaction_id
+           FROM   silver.transactions_clean
+           GROUP  BY source_system, order_id
+)
 SELECT
     MD5(p.source_system || '|' || p.payment_id),
     p.source_system,
     p.payment_id,
     FALSE,
-    MD5(p.source_system || '|' || p.order_id),
+    o.order_key,
     MD5(t.source_system || '|' || t.transaction_id),
     p.payment_method,
     p.amount,
@@ -246,9 +266,18 @@ SELECT
     'delivered by source',
     IFF(p.amount IS NULL, NULL, p.amount < 0)
 FROM      silver.payments_clean AS p
-LEFT JOIN silver.transactions_clean AS t
+-- One row per order, not per transaction: a LEFT JOIN straight to
+-- transactions_clean fans out when an order carries several transaction ids,
+-- duplicating payment_key and doubling SUM(amount).
+LEFT JOIN t
        ON p.source_system = t.source_system
-      AND p.order_id      = t.order_id;
+      AND p.order_id      = t.order_id
+-- Resolved through fact_order, not derived: fact_transaction and
+-- fact_order_item were corrected for this and fact_payment was missed, leaving
+-- 19 Client A payments pointing at orders that were never created.
+LEFT JOIN fact_order AS o
+       ON p.source_system = o.source_system
+      AND p.order_id      = o.order_id;
 
 -- Client A: payment embedded in the transaction
 INSERT INTO fact_payment
@@ -259,7 +288,7 @@ SELECT
     t.source_system,
     'PAY-' || t.transaction_id                       AS payment_id,
     TRUE                                             AS payment_id_is_surrogate,
-    MD5(t.source_system || '|' || t.order_id),
+    o.order_key,
     MD5(t.source_system || '|' || t.transaction_id),
     t.payment_method,
     t.payment_amount,
@@ -268,7 +297,10 @@ SELECT
     'not delivered: payment is embedded in the transaction and carries no status field'
                                                      AS status_source,
     IFF(t.payment_amount IS NULL, NULL, t.payment_amount < 0)
-FROM silver.transactions_clean AS t
+FROM      silver.transactions_clean AS t
+LEFT JOIN fact_order AS o
+       ON t.source_system = o.source_system
+      AND t.order_id      = o.order_id
 WHERE t.source_system = 'CLIENT_A';
 
 /* ---------------------------------------------------------------------------

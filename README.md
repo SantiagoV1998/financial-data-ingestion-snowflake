@@ -64,17 +64,17 @@ the reasoning behind each decision, including the ones rejected, in
 |---|---|
 | Transactions | 57 parsed → **46 canonical** |
 | Line items | 58 parsed → **41 canonical** |
-| Quality findings | **108** — 13 reject, 95 warn |
-| **Labelled anomalies detected** | **49 / 49 (100%)** |
-| Canonical model invariants | **20 / 20 passing** |
+| Quality findings | **131** — 13 reject, 118 warn |
+| **Labelled anomalies detected** | **55 / 55 (100%)** — both clients |
+| Canonical model invariants | **27 / 27 passing** |
 
 ### The rules are measured, not asserted
 
 The delivery labels its own anomalies — `<!-- TXN-1008: missing order date,
 negative quantity -->` — and bronze keeps every line verbatim, so those labels are
-recoverable as **ground truth**. Every label is classified and the totals
-reconcile: 39 mapped to a rule, 7 schema variation handled by design, **0
-unclassified**.
+recoverable as **ground truth** — from the XML comments and from the JSON's `//`
+comments alike. Every label is classified and the totals reconcile: 45 mapped to
+a rule, 7 schema variation handled by design, **0 unclassified**.
 
 The comparison found a real gap: six transactions labelled `duplicate customer`
 with no rule behind them. That rule now exists.
@@ -94,7 +94,7 @@ beside it — never by inventing a value the client did not send.
 | 4 | `channel` Web/Mobile | not delivered | Nullable. "Unknown" ≠ "not collected by this client" |
 | 5 | currency as XML attribute | nested in `price{}`, absent on payments | Coalesce cascade line → product → transaction, recorded per line |
 
-Four of the canonical validations assert these **decisions** rather than the
+Several canonical validations assert these **decisions** rather than the
 mechanics: if someone later collapses the tier mapping into an equivalence, or
 defaults a missing status to `'UNKNOWN'`, the build fails.
 
@@ -124,7 +124,7 @@ snow sql -c <connection> -f sql/02_silver/06_deduplicate.sql
 
 snow sql -c <connection> -f sql/03_gold/01_canonical_ddl.sql
 snow sql -c <connection> -f sql/03_gold/02_transform_to_canonical.sql
-snow sql -c <connection> -f sql/03_gold/03_validate_canonical.sql      # 20 invariants
+snow sql -c <connection> -f sql/03_gold/03_validate_canonical.sql      # 27 invariants
 ```
 
 The **load** scripts are idempotent — each truncates before copying, and the

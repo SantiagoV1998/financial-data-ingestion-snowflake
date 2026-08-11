@@ -47,7 +47,33 @@ WITH xml_comments AS (
 )
 SELECT 'CLIENT_A' AS source_system, transaction_id, label
 FROM   xml_comments
-WHERE  transaction_id IS NOT NULL;
+WHERE  transaction_id IS NOT NULL
+
+UNION ALL
+
+/* Client B carries the same labels as // comments inside the JSON. They are not
+   always on the line naming the transaction — `"qty": -3,   // negative quantity`
+   sits several lines below its id — so each comment is attributed to the most
+   recent id above it. Coverage was previously measured on Client A alone while
+   being reported as a delivery-wide figure. */
+SELECT 'CLIENT_B', jb.transaction_id, jb.label
+FROM (
+    SELECT
+        LAST_VALUE(REGEXP_SUBSTR(line_text, '(C-TXN-[0-9]+)', 1, 1, 'e', 1)) IGNORE NULLS
+            OVER (ORDER BY file_row_number
+                  ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS transaction_id,
+        LOWER(TRIM(REGEXP_SUBSTR(line_text, '//\\s*(.*)$', 1, 1, 'e', 1)))  AS label
+    FROM   bronze.raw_text_lines
+    WHERE  source_file ILIKE '%transactions.json'
+) AS jb
+WHERE jb.transaction_id IS NOT NULL
+  AND jb.label IS NOT NULL
+  -- The JSON ends with a block comment describing records that were never
+  -- delivered ("Continue pattern up to C-TXN-3120: 100 valid records..."). Those
+  -- lines attribute to an id that does not exist in the data, so existence is
+  -- the filter — more robust than matching the shape of the text.
+  AND EXISTS (SELECT 1 FROM parsed_client_b_transactions AS pb
+              WHERE pb.transaction_json:id::VARCHAR = jb.transaction_id);
 
 /* ---------------------------------------------------------------------------
    The CSV side of the same ground truth
@@ -122,6 +148,9 @@ LATERAL (
         SELECT 'missing customer id',     ARRAY_CONSTRUCT('MISSING_CUSTOMER_ID')
         UNION ALL
         SELECT 'missing order date',      ARRAY_CONSTRUCT('MISSING_ORDER_DATE')
+        UNION ALL
+        -- The JSON writes it shorter than the XML does.
+        SELECT 'missing date',            ARRAY_CONSTRUCT('MISSING_ORDER_DATE')
         UNION ALL
         SELECT 'missing customer name',   ARRAY_CONSTRUCT('MISSING_CUSTOMER_NAME')
         UNION ALL

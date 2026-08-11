@@ -8,12 +8,21 @@
    logic and so cannot reintroduce duplicates — and adding a column to gold
    later cannot silently change which copy survives.
 
-   WHICH COPY SURVIVES is a business decision, not a formality. The delivery
-   order is the only signal available: these are file exports with no update
-   timestamp, so the last occurrence in the document is taken as the most
-   recent statement of the record. document_position makes that deterministic;
-   without a deterministic tiebreaker a rerun could keep a different row and the
-   pipeline would stop being reproducible.
+   WHICH COPY SURVIVES is a business decision, not a formality, and the obvious
+   answer is wrong here.
+
+   "Last occurrence wins" is the usual reading of a file export with no update
+   timestamp. But these duplicates are not restatements — they are duplication
+   artefacts, and the provider says so: the second copy of C-TXN-3001 is labelled
+   `// duplicate` in the source and carries `"items": []`. Taking the last copy
+   kept the empty one, dropped the only real line, and produced a transaction
+   with a 149.99 payment and no lines at all — a fabricated 149.99 variance, 74%
+   of Client B's reported total.
+
+   So completeness wins first: the copy carrying the most line items, with
+   document position as the tiebreaker among equals. That both matches the
+   provider's own labelling and preserves data instead of discarding it. It stays
+   fully deterministic, which is what reproducibility actually requires.
 
    REJECT rows are held back, not deleted. They remain in dq_quarantine with
    their payload, so a corrected rule can replay them without returning to the
@@ -34,8 +43,15 @@ USE SCHEMA silver;
 -- transaction whose second copy has an empty <OrderID> would vanish from gold
 -- entirely, taking its clean first copy with it.
 CREATE OR REPLACE TABLE transactions_clean AS
-SELECT *
-FROM   v_all_transactions AS t
+SELECT t.*
+FROM   (SELECT v.*,
+               (SELECT COUNT(*)
+                FROM   v_all_transaction_items AS i
+                WHERE  i.source_system     = v.source_system
+                  AND  i.transaction_id    = v.transaction_id
+                  AND  i.document_position = v.document_position
+                  AND  i.raw_payload IS NOT NULL) AS line_item_count
+        FROM v_all_transactions AS v) AS t
 WHERE  NOT EXISTS (
          SELECT 1 FROM dq_quarantine AS q
          WHERE q.entity            = 'transaction'
@@ -44,8 +60,8 @@ WHERE  NOT EXISTS (
            AND q.document_position = t.document_position
        )
 QUALIFY ROW_NUMBER() OVER (
-          PARTITION BY source_system, transaction_id
-          ORDER BY     document_position DESC
+          PARTITION BY t.source_system, t.transaction_id
+          ORDER BY     t.line_item_count DESC, t.document_position DESC
         ) = 1;
 
 /* ---------------------------------------------------------------------------
